@@ -1,0 +1,8 @@
+[workspace]
+members = [
+  "air",
+  "core",
+  "prover",
+  "runner",
+  "examples",
+]

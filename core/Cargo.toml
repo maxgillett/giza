@@ -1,0 +1,10 @@
+[package]
+name = "giza-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.57"
+
+[dependencies]
+math = { package = "winter-math", version = "0.3", default-features = false }
+hex = "0.4"
+winter-utils = { package = "winter-utils", version = "0.3", default-features = false }

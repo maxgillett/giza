@@ -1,0 +1,11 @@
+[package]
+name = "giza-prover"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.57"
+
+[dependencies]
+air = { package = "giza-air", path = "../air", version = "0.1", default-features = false }
+prover = { package = "winter-prover", version = "0.3", default-features = false }
+runner = { package = "giza-runner", path = "../runner", version = "0.1", default-features = false }
+giza_core = { package = "giza-core", path = "../core", version = "0.1", default-features = false }

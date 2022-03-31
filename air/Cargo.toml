@@ -1,0 +1,9 @@
+[package]
+name = "giza-air"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+winter-air = { package = "winter-air", version = "0.3", default-features = false }
+winter-utils = { package = "winter-utils", version = "0.3", default-features = false }
+giza_core = { package = "giza-core", path = "../core", version = "0.1", default-features = false }
