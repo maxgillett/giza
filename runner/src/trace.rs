@@ -2,7 +2,8 @@ use super::{MemoryTrace, StateTrace};
 use crate::memory::Memory;
 use crate::runner::State;
 use giza_core::{
-    Felt, MEM_TRACE_OFFSET, MEM_TRACE_RANGE, STATE_TRACE_OFFSET, STATE_TRACE_RANGE, TRACE_WIDTH,
+    Felt, StarkField, MEM_TRACE_OFFSET, MEM_TRACE_RANGE, STATE_TRACE_OFFSET, STATE_TRACE_RANGE,
+    TRACE_WIDTH,
 };
 
 use winterfell::Trace;
@@ -33,11 +34,12 @@ impl ExecutionTrace {
             let last_value = column.last().copied().unwrap();
             column.resize(trace_len, last_value);
         }
-        //    for j in 0..trace_len {
-        //        print!("{:?} ", state_trace[i][j].as_int());
-        //    }
-        //    println!("");
-        //}
+        for i in 0..state_trace.len() {
+            for j in 0..trace_len {
+                print!("{:?} ", state_trace[i][j].as_int());
+            }
+            println!("");
+        }
         Self {
             meta: Vec::new(),
             memory: memory_trace,

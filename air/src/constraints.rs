@@ -1,7 +1,7 @@
 use super::EvaluationFrame;
 use giza_core::{flags::*, Decomposition, Felt, FieldElement};
 
-pub trait EvaluationResult<E: FieldElement> {
+pub trait EvaluationResult<E: FieldElement + From<Felt>> {
     fn evaluate_instr_constraints(&mut self, frame: &EvaluationFrame<E>);
     fn evaluate_operand_constraints(&mut self, frame: &EvaluationFrame<E>);
     fn evaluate_register_constraints(&mut self, frame: &EvaluationFrame<E>);
@@ -29,7 +29,7 @@ pub const ASSERT_EQ: usize = 29;
 pub const MEMORY_1: usize = 30;
 pub const MEMORY_2: usize = 31;
 
-impl<E: FieldElement<BaseField = Felt>> EvaluationResult<E> for [E] {
+impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
     fn evaluate_instr_constraints(&mut self, frame: &EvaluationFrame<E>) {
         let curr = TraceRow::new(frame.current());
         // Bit constraints
@@ -41,24 +41,23 @@ impl<E: FieldElement<BaseField = Felt>> EvaluationResult<E> for [E] {
             };
         }
         // Instruction unpacking
-        self[INST] = E::from(0u8);
-        //let b15: E = TWO.exp(15).into();
-        //let b16: E = TWO.exp(15).into();
-        //let b32: E = TWO.exp(15).into();
-        //let b48: E = TWO.exp(15).into();
-        //let a: E = curr
-        //    .flags_tilde()
-        //    .into_iter()
-        //    .enumerate()
-        //    .take(15)
-        //    .fold(Felt::ZERO.into(), |acc, (n, flag)| {
-        //        acc + E::from(2u128.pow(n as u32)) * flag
-        //    });
-        //self[INST] = (curr.off_dst() + b15)
-        //    + b16 * (curr.off_op0() + b15)
-        //    + b32 * (curr.op1() + b15)
-        //    + b48 * a
-        //    - curr.inst();
+        let b15: E = TWO.exp(15).into();
+        let b16: E = TWO.exp(16).into();
+        let b32: E = TWO.exp(32).into();
+        let b48: E = TWO.exp(48).into();
+        let a: E = curr
+            .flags()
+            .into_iter()
+            .enumerate()
+            .take(15)
+            .fold(Felt::ZERO.into(), |acc, (n, flag)| {
+                acc + E::from(2u128.pow(n as u32)) * flag
+            });
+        self[INST] = (curr.off_dst() + b15)
+            + b16 * (curr.off_op0() + b15)
+            + b32 * (curr.off_op1() + b15)
+            + b48 * a
+            - curr.inst();
     }
 
     fn evaluate_operand_constraints(&mut self, frame: &EvaluationFrame<E>) {
@@ -137,9 +136,9 @@ impl<E: FieldElement<BaseField = Felt>> EvaluationResult<E> for [E] {
     }
 }
 
-struct TraceRow<'a, E: FieldElement>(&'a [E]);
+struct TraceRow<'a, E: FieldElement + From<Felt>>(&'a [E]);
 
-impl<'a, E: FieldElement<BaseField = Felt>> TraceRow<'a, E> {
+impl<'a, E: FieldElement + From<Felt>> TraceRow<'a, E> {
     pub fn new(v: &'a [E]) -> TraceRow<'a, E> {
         TraceRow(v)
     }
@@ -201,7 +200,7 @@ impl<'a, E: FieldElement<BaseField = Felt>> TraceRow<'a, E> {
     //}
 }
 
-impl<'a, E: FieldElement> Decomposition<E> for TraceRow<'a, E> {
+impl<'a, E: FieldElement + From<Felt>> Decomposition<E> for TraceRow<'a, E> {
     fn flags(&self) -> Vec<E> {
         let mut flags = Vec::with_capacity(NUM_FLAGS);
         // The most significant 16 bits

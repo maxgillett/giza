@@ -74,7 +74,7 @@ impl Air for ProcessorAir {
         ]
     }
 
-    fn evaluate_transition<E: FieldElement<BaseField = Self::BaseField>>(
+    fn evaluate_transition<E: FieldElement + From<Felt>>(
         &self,
         frame: &EvaluationFrame<E>,
         _periodic_values: &[E],
