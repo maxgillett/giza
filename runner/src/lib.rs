@@ -6,6 +6,8 @@ pub use memory::Memory;
 pub mod runner;
 pub use runner::Program;
 
+pub mod hints;
+
 mod trace;
 pub use trace::ExecutionTrace;
 

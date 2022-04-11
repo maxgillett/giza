@@ -1,6 +1,7 @@
 // Modified from https://github.com/o1-labs/proof-systems
 
 use crate::errors::ExecutionError;
+use crate::hints::{ExecutionEffect as HintExecutionEffect, HintManager};
 use crate::memory::Memory;
 use crate::trace::ExecutionTrace;
 use giza_core::{
@@ -72,19 +73,22 @@ impl InstructionState {
 
 /// A data structure to store a current step of computation
 pub struct Step<'a> {
-    /// current word of the program
     pub mem: &'a mut Memory,
-    /// current pointers
-    curr: RegisterState,
-    /// (if any) next pointers
+    hints: Option<&'a HintManager>,
+    pub curr: RegisterState,
     next: Option<RegisterState>,
 }
 
 impl<'a> Step<'a> {
     /// Creates a new execution step from a step index, a word, and current pointers
-    pub fn new(mem: &mut Memory, ptrs: RegisterState) -> Step {
+    pub fn new(
+        mem: &'a mut Memory,
+        hints: Option<&'a HintManager>,
+        ptrs: RegisterState,
+    ) -> Step<'a> {
         Step {
             mem,
+            hints,
             curr: ptrs,
             next: None,
         }
@@ -95,9 +99,28 @@ impl<'a> Step<'a> {
         Word::new(self.mem.read(self.curr.pc).expect("pc points to None cell"))
     }
 
+    fn apply_hint_effects(&mut self, res: HintExecutionEffect) {
+        self.curr.pc = res.pc;
+        self.curr.ap = res.ap;
+        self.curr.fp = res.fp;
+        if let Some(updates) = res.mem_updates {
+            for (addr, elem) in updates.0.iter() {
+                self.mem.write(Felt::from(*addr), elem.word());
+            }
+        }
+    }
+
     /// Executes a step from the current registers and returns the instruction state
     pub fn execute(&mut self) -> InstructionState {
-        // This order is important in order to allocate the memory in time
+        // Execute hints and apply changes
+        if let Some(manager) = self.hints {
+            for hint in manager.get_hints(self.curr.pc).into_iter().flatten() {
+                let changes = hint.exec(&self).unwrap();
+                self.apply_hint_effects(changes);
+            }
+        }
+
+        // Execute instruction
         let (op0_addr, mut op0) = self.set_op0();
         let (op1_addr, mut op1, size) = self.set_op1(op0);
         let mut res = self.set_res(op0, op1);
@@ -444,16 +467,19 @@ pub struct Program<'a> {
     init: RegisterState,
     /// final register state
     fin: RegisterState,
+    /// hints
+    hints: Option<HintManager>,
 }
 
 impl<'a> Program<'a> {
     /// Creates an execution from the public information (memory and initial pointers)
-    pub fn new(mem: &mut Memory, pc: u64, ap: u64) -> Program {
+    pub fn new(mem: &mut Memory, pc: u64, ap: u64, hints: Option<HintManager>) -> Program {
         Program {
             steps: Felt::new(0),
             mem,
             init: RegisterState::new(Felt::from(pc), Felt::from(ap), Felt::from(ap)),
             fin: RegisterState::new(Felt::new(0), Felt::new(0), Felt::new(0)),
+            hints,
         }
     }
 
@@ -479,7 +505,7 @@ impl<'a> Program<'a> {
         // keep executing steps until the end is reached
         while !end {
             // create current step of computation
-            let mut step = Step::new(self.mem, next);
+            let mut step = Step::new(self.mem, self.hints.as_ref(), next);
             curr = step.curr;
 
             // execute current step and save state

@@ -1,5 +1,6 @@
 use air::{ProcessorAir, ProofOptions, PublicInputs};
 use giza_core::Felt;
+use runner::hints::{Hint, HintManager};
 use runner::{Memory, Program};
 
 fn main() {
@@ -44,11 +45,18 @@ fn main() {
     mem.write(Felt::from(21u32), Felt::from(41u32)); // beginning of output
     mem.write(Felt::from(22u32), Felt::from(44u32)); // end of output
     mem.write(Felt::from(23u32), Felt::from(44u32)); // end of program
-    let mut program = Program::new(&mut mem, 5, 24);
+
+    let mut hints = HintManager::default();
+    hints.push_hint(7, Hint::new(String::from("memory[30]=5"), vec![], None));
+    hints.push_hint(7, Hint::new(String::from("memory[31]=5"), vec![], None));
+
+    let mut program = Program::new(&mut mem, 5, 24, Some(hints));
 
     // execute the program and generate the proof of execution
     let proof_options = ProofOptions::with_96_bit_security();
     let (_outputs, proof) = prover::execute(&mut program, &proof_options).unwrap();
+    let proof_bytes = proof.to_bytes();
+    println!("Proof size: {:.1} KB", proof_bytes.len() as f64 / 1024f64);
 
     // verify correct program execution
     let pc = vec![Felt::new(5), Felt::new(20)];

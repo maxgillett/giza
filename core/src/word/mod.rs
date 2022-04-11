@@ -7,7 +7,7 @@ mod helpers;
 pub use helpers::FieldHelpers;
 
 /// A  word for the runner. Some words are instructions (which fit inside a `u64`). Others are immediate values (any `F` element).
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Word(Felt);
 
 /// Returns an offset of 16 bits to its biased representation in the interval `[-2^15,2^15)` as a field element

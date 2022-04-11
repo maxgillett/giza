@@ -109,6 +109,7 @@ impl Memory {
 mod tests {
     use super::Felt as F;
     use super::*;
+    use giza_core::{Felt, FieldHelpers, Word, MEM_TRACE_WIDTH};
 
     #[test]
     fn test_cairo_bytecode() {
