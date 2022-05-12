@@ -52,8 +52,14 @@ impl Prover for ExecutionProver {
 
     fn get_pub_inputs(&self, trace: &ExecutionTrace) -> PublicInputs {
         let last_step = trace.length() - 1;
-        let pc = vec![trace.get(0, 0), trace.get(0, last_step)];
-        let ap = vec![trace.get(1, 0), trace.get(1, last_step)];
+        let pc = vec![
+            trace.main_segment().get(0, 0),
+            trace.main_segment().get(0, last_step),
+        ];
+        let ap = vec![
+            trace.main_segment().get(1, 0),
+            trace.main_segment().get(1, last_step),
+        ];
         PublicInputs::new(pc, ap)
     }
 }

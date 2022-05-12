@@ -92,13 +92,4 @@ mod tests {
         println!("chunk2 {:?}", Felt::from(0x7fffu64));
         assert_eq!(chunk, Felt::from(0x7fffu64));
     }
-
-    //#[test]
-    //fn test_hex_and_u64() {
-    //    let fe = Felt::from(0x480680017fff8000u64);
-    //    let change = Felt::from(&fe.to_hex()).unwrap();
-    //    assert_eq!(fe, change);
-    //    let word = change.to_u64();
-    //    assert_eq!(word, 0x480680017fff8000u64);
-    //}
 }

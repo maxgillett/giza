@@ -4,10 +4,7 @@ use crate::errors::ExecutionError;
 use crate::hints::{ExecutionEffect as HintExecutionEffect, HintManager};
 use crate::memory::Memory;
 use crate::trace::ExecutionTrace;
-use giza_core::{
-    flags::*, Decomposition, Felt, FieldElement, FlagGroupDecomposition, StarkField, Word,
-    NUM_INSTRUCTION_COLS, NUM_REGISTER_COLS, STATE_TRACE_WIDTH,
-};
+use giza_core::{flags::*, *};
 
 use std::convert::TryInto;
 
@@ -26,14 +23,15 @@ pub struct InstructionState {
     /// Instruction
     inst: Word,
     inst_size: Felt,
-    /// Operand offsets
+    /// Addresses
     dst_addr: Felt,
     op0_addr: Felt,
     op1_addr: Felt,
-    /// Offset values
+    /// Values
     dst: Option<Felt>,
     op0: Option<Felt>,
     op1: Option<Felt>,
+    /// Result
     res: Option<Felt>,
 }
 
@@ -386,74 +384,92 @@ impl<'a> Step<'a> {
     }
 }
 
-/// Trace-friendly state of the registers and instructions at
-/// every step of program execution
+/// Trace-friendly record of registers and instruction state across
+/// all program execution steps
 pub struct State {
-    registers: [Vec<Felt>; NUM_REGISTER_COLS],
-    instructions: [Vec<Felt>; NUM_INSTRUCTION_COLS],
+    pub flags: [Vec<Felt>; FLAG_TRACE_WIDTH],
+    pub res: [Vec<Felt>; RES_TRACE_WIDTH],
+    pub mem_p: [Vec<Felt>; MEM_P_TRACE_WIDTH],
+    pub mem_a: [Vec<Felt>; MEM_A_TRACE_WIDTH],
+    pub mem_v: [Vec<Felt>; MEM_V_TRACE_WIDTH],
+    pub offsets: [Vec<Felt>; OFF_X_TRACE_WIDTH],
 }
 
 impl State {
     fn new(init_trace_len: usize) -> Self {
-        let mut registers: Vec<Vec<Felt>> = Vec::with_capacity(NUM_REGISTER_COLS);
-        let mut instructions: Vec<Vec<Felt>> = Vec::with_capacity(NUM_INSTRUCTION_COLS);
-        for _ in 0..NUM_REGISTER_COLS {
+        let mut flags: Vec<Vec<Felt>> = Vec::with_capacity(FLAG_TRACE_WIDTH);
+        let mut res: Vec<Vec<Felt>> = Vec::with_capacity(RES_TRACE_WIDTH);
+        let mut mem_p: Vec<Vec<Felt>> = Vec::with_capacity(MEM_P_TRACE_WIDTH);
+        let mut mem_a: Vec<Vec<Felt>> = Vec::with_capacity(MEM_A_TRACE_WIDTH);
+        let mut mem_v: Vec<Vec<Felt>> = Vec::with_capacity(MEM_V_TRACE_WIDTH);
+        let mut offsets: Vec<Vec<Felt>> = Vec::with_capacity(OFF_X_TRACE_WIDTH);
+        for _ in 0..FLAG_TRACE_WIDTH {
             let column = Felt::zeroed_vector(init_trace_len);
-            registers.push(column);
+            flags.push(column);
         }
-        for _ in 0..NUM_INSTRUCTION_COLS {
+        for _ in 0..RES_TRACE_WIDTH {
             let column = Felt::zeroed_vector(init_trace_len);
-            instructions.push(column);
+            res.push(column);
+        }
+        for _ in 0..MEM_P_TRACE_WIDTH {
+            let column = Felt::zeroed_vector(init_trace_len);
+            mem_p.push(column);
+        }
+        for _ in 0..MEM_A_TRACE_WIDTH {
+            let column = Felt::zeroed_vector(init_trace_len);
+            mem_a.push(column);
+        }
+        for _ in 0..MEM_V_TRACE_WIDTH {
+            let column = Felt::zeroed_vector(init_trace_len);
+            mem_v.push(column);
+        }
+        for _ in 0..OFF_X_TRACE_WIDTH {
+            let column = Felt::zeroed_vector(init_trace_len);
+            offsets.push(column);
         }
         State {
-            registers: registers.try_into().unwrap(),
-            instructions: instructions.try_into().unwrap(),
+            flags: flags.try_into().unwrap(),
+            res: res.try_into().unwrap(),
+            mem_p: mem_p.try_into().unwrap(),
+            mem_a: mem_a.try_into().unwrap(),
+            mem_v: mem_v.try_into().unwrap(),
+            offsets: offsets.try_into().unwrap(),
         }
     }
 
     fn set_register_state(&mut self, step: usize, s: RegisterState) {
-        self.registers[0][step] = s.pc;
-        self.registers[1][step] = s.ap;
-        self.registers[2][step] = s.fp;
+        self.mem_a[0][step] = s.pc;
+        self.mem_p[0][step] = s.ap;
+        self.mem_p[1][step] = s.fp;
     }
 
     fn set_instruction_state(&mut self, step: usize, s: InstructionState) {
         // Flags
         let flags = s.inst.flags();
         for i in 0..=15 {
-            self.instructions[i][step] = flags[i];
+            self.flags[i][step] = flags[i];
         }
-        self.instructions[16][step] = s.inst.word();
 
-        // Offsets
-        self.instructions[17][step] = s.inst.off_dst();
-        self.instructions[18][step] = s.inst.off_op0();
-        self.instructions[19][step] = s.inst.off_op1();
+        // Result
+        self.res[0][step] = s.res.unwrap_or(Felt::new(0));
+
+        // Instruction
+        self.mem_v[0][step] = s.inst.word();
 
         // Operands
-        self.instructions[20][step] = s.dst_addr;
-        self.instructions[21][step] = s.op0_addr;
-        self.instructions[22][step] = s.op1_addr;
+        self.mem_v[1][step] = s.dst_addr;
+        self.mem_v[2][step] = s.op0_addr;
+        self.mem_v[3][step] = s.op1_addr;
 
         // Auxiliary values
-        self.instructions[23][step] = s.dst.unwrap_or(Felt::new(0));
-        self.instructions[24][step] = s.op0.unwrap_or(Felt::new(0));
-        self.instructions[25][step] = s.op1.unwrap_or(Felt::new(0));
-        self.instructions[26][step] = s.res.unwrap_or(Felt::new(0));
-    }
+        self.mem_a[1][step] = s.dst.unwrap_or(Felt::new(0));
+        self.mem_a[2][step] = s.op0.unwrap_or(Felt::new(0));
+        self.mem_a[3][step] = s.op1.unwrap_or(Felt::new(0));
 
-    pub fn into_trace(&self) -> [Vec<Felt>; STATE_TRACE_WIDTH] {
-        let mut trace: Vec<Vec<Felt>> = Vec::with_capacity(STATE_TRACE_WIDTH);
-        trace.extend_from_slice(&self.registers);
-        trace.extend_from_slice(&self.instructions);
-        let mut t0 = vec![];
-        let mut t1 = vec![];
-        for step in 0..self.registers[0].len() {
-            t0.push(self.instructions[9][step] * self.instructions[21][step]);
-            t1.push(t0[step] * self.instructions[24][step]);
-        }
-        trace.extend_from_slice(&[t0, t1]);
-        trace.try_into().unwrap()
+        // Offsets
+        self.offsets[0][step] = s.inst.off_dst();
+        self.offsets[1][step] = s.inst.off_op0();
+        self.offsets[2][step] = s.inst.off_op1();
     }
 }
 
@@ -528,6 +544,6 @@ impl<'a> Program<'a> {
         self.fin = curr;
         self.steps = Felt::from(n as u64);
 
-        Ok(ExecutionTrace::new(n, &*self.mem, &state))
+        Ok(ExecutionTrace::new(n, &state))
     }
 }

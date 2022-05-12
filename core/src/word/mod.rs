@@ -27,8 +27,7 @@ impl Word {
     }
 }
 
-/// This trait contains methods that decompose a field element into [Word] components
-pub trait Decomposition<F> {
+pub trait OffsetDecomposition<F> {
     /// Returns the destination offset in biased representation
     fn off_dst(&self) -> F;
 
@@ -37,7 +36,10 @@ pub trait Decomposition<F> {
 
     /// Returns the second operand offset in biased representation
     fn off_op1(&self) -> F;
+}
 
+/// This trait contains methods that decompose a field element into [Word] components
+pub trait FlagDecomposition<F> {
     /// Returns vector of 16 flags
     fn flags(&self) -> Vec<F>;
 
@@ -45,52 +47,84 @@ pub trait Decomposition<F> {
     fn flag_at(&self, pos: usize) -> F;
 
     /// Returns bit-flag for destination register as `F`
-    fn f_dst_fp(&self) -> F;
+    fn f_dst_fp(&self) -> F {
+        self.flag_at(0)
+    }
 
     /// Returns bit-flag for first operand register as `F`
-    fn f_op0_fp(&self) -> F;
+    fn f_op0_fp(&self) -> F {
+        self.flag_at(1)
+    }
 
     /// Returns bit-flag for immediate value for second register as `F`
-    fn f_op1_val(&self) -> F;
+    fn f_op1_val(&self) -> F {
+        self.flag_at(2)
+    }
 
     /// Returns bit-flag for frame pointer for second register as `F`
-    fn f_op1_fp(&self) -> F;
+    fn f_op1_fp(&self) -> F {
+        self.flag_at(3)
+    }
 
     /// Returns bit-flag for allocation pointer for second regsiter as `F`
-    fn f_op1_ap(&self) -> F;
+    fn f_op1_ap(&self) -> F {
+        self.flag_at(4)
+    }
 
     /// Returns bit-flag for addition operation in right side as `F`
-    fn f_res_add(&self) -> F;
+    fn f_res_add(&self) -> F {
+        self.flag_at(5)
+    }
 
     /// Returns bit-flag for multiplication operation in right side as `F`
-    fn f_res_mul(&self) -> F;
+    fn f_res_mul(&self) -> F {
+        self.flag_at(6)
+    }
 
     /// Returns bit-flag for program counter update being absolute jump as `F`
-    fn f_pc_abs(&self) -> F;
+    fn f_pc_abs(&self) -> F {
+        self.flag_at(7)
+    }
 
     /// Returns bit-flag for program counter update being relative jump as `F`
-    fn f_pc_rel(&self) -> F;
+    fn f_pc_rel(&self) -> F {
+        self.flag_at(8)
+    }
 
     /// Returns bit-flag for program counter update being conditional jump as `F`
-    fn f_pc_jnz(&self) -> F;
+    fn f_pc_jnz(&self) -> F {
+        self.flag_at(9)
+    }
 
     /// Returns bit-flag for allocation counter update being a manual addition as `F`
-    fn f_ap_add(&self) -> F;
+    fn f_ap_add(&self) -> F {
+        self.flag_at(10)
+    }
 
     /// Returns bit-flag for allocation counter update being a self increment as `F`
-    fn f_ap_one(&self) -> F;
+    fn f_ap_one(&self) -> F {
+        self.flag_at(11)
+    }
 
     /// Returns bit-flag for operation being a call as `F`
-    fn f_opc_call(&self) -> F;
+    fn f_opc_call(&self) -> F {
+        self.flag_at(12)
+    }
 
     /// Returns bit-flag for operation being a return as `F`
-    fn f_opc_ret(&self) -> F;
+    fn f_opc_ret(&self) -> F {
+        self.flag_at(13)
+    }
 
     /// Returns bit-flag for operation being an assert-equal as `F`
-    fn f_opc_aeq(&self) -> F;
+    fn f_opc_aeq(&self) -> F {
+        self.flag_at(14)
+    }
 
     /// Returns bit-flag for 16th position
-    fn f15(&self) -> F;
+    fn f15(&self) -> F {
+        self.flag_at(15)
+    }
 }
 
 pub trait FlagGroupDecomposition<F> {
@@ -116,7 +150,7 @@ pub trait FlagGroupDecomposition<F> {
     fn opcode(&self) -> u8;
 }
 
-impl Decomposition<Felt> for Word {
+impl OffsetDecomposition<Felt> for Word {
     fn off_dst(&self) -> Felt {
         // The least significant 16 bits
         bias(self.word().chunk_u16(POS_DST))
@@ -132,7 +166,9 @@ impl Decomposition<Felt> for Word {
         // From the 48th bit to the 33rd
         bias(self.word().chunk_u16(POS_OP1))
     }
+}
 
+impl FlagDecomposition<Felt> for Word {
     fn flags(&self) -> Vec<Felt> {
         let mut flags = Vec::with_capacity(NUM_FLAGS);
         // The most significant 16 bits
@@ -144,70 +180,6 @@ impl Decomposition<Felt> for Word {
 
     fn flag_at(&self, pos: usize) -> Felt {
         Felt::from(self.word().to_bits()[POS_FLAGS + pos] as u32)
-    }
-
-    fn f_dst_fp(&self) -> Felt {
-        self.flag_at(0)
-    }
-
-    fn f_op0_fp(&self) -> Felt {
-        self.flag_at(1)
-    }
-
-    fn f_op1_val(&self) -> Felt {
-        self.flag_at(2)
-    }
-
-    fn f_op1_fp(&self) -> Felt {
-        self.flag_at(3)
-    }
-
-    fn f_op1_ap(&self) -> Felt {
-        self.flag_at(4)
-    }
-
-    fn f_res_add(&self) -> Felt {
-        self.flag_at(5)
-    }
-
-    fn f_res_mul(&self) -> Felt {
-        self.flag_at(6)
-    }
-
-    fn f_pc_abs(&self) -> Felt {
-        self.flag_at(7)
-    }
-
-    fn f_pc_rel(&self) -> Felt {
-        self.flag_at(8)
-    }
-
-    fn f_pc_jnz(&self) -> Felt {
-        self.flag_at(9)
-    }
-
-    fn f_ap_add(&self) -> Felt {
-        self.flag_at(10)
-    }
-
-    fn f_ap_one(&self) -> Felt {
-        self.flag_at(11)
-    }
-
-    fn f_opc_call(&self) -> Felt {
-        self.flag_at(12)
-    }
-
-    fn f_opc_ret(&self) -> Felt {
-        self.flag_at(13)
-    }
-
-    fn f_opc_aeq(&self) -> Felt {
-        self.flag_at(14)
-    }
-
-    fn f15(&self) -> Felt {
-        self.flag_at(15)
     }
 }
 

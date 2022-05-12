@@ -1,49 +1,135 @@
-use super::{MemoryTrace, StateTrace};
-use crate::memory::Memory;
 use crate::runner::State;
 use giza_core::{
-    Felt, StarkField, MEM_TRACE_OFFSET, MEM_TRACE_RANGE, STATE_TRACE_OFFSET, STATE_TRACE_RANGE,
-    TRACE_WIDTH,
+    Felt, FieldElement, StarkField, MEM_A_TRACE_RANGE, MEM_A_TRACE_WIDTH, MEM_V_TRACE_RANGE,
+    OFF_X_TRACE_RANGE, TRACE_WIDTH,
 };
 
-use winterfell::Trace;
+use winterfell::{Matrix, Trace, TraceLayout};
 
 pub struct ExecutionTrace {
+    layout: TraceLayout,
     meta: Vec<u8>,
-    memory: MemoryTrace,
-    state: StateTrace,
+    trace: Matrix<Felt>,
+}
+
+/// A virtual column is composed of one or more subcolumns.
+struct VirtualColumn<'a, E: FieldElement> {
+    subcols: &'a [Vec<E>],
+}
+
+impl<'a, E: FieldElement> VirtualColumn<'a, E> {
+    fn new(subcols: &'a [Vec<E>]) -> Self {
+        Self { subcols }
+    }
+
+    /// Pack subcolumns into a single column: cycle through each subcolumn, appending
+    /// a single value to the column for each iteration step until exhausted
+    fn to_column(&self) -> Vec<E> {
+        let mut col: Vec<E> = vec![];
+        for n in 0..self.subcols[0].len() {
+            for subcol in self.subcols {
+                col.push(subcol[n]);
+            }
+        }
+        col
+    }
+
+    /// Split subcolumns into multiple columns: cycle through each subcolumn, appending...
+    fn to_columns(&self, num_rows: &[usize]) -> Vec<Vec<E>> {
+        let mut n = 0;
+        let mut cols: Vec<Vec<E>> = vec![vec![]; num_rows.iter().sum()];
+        for (subcol, width) in self.subcols.iter().zip(num_rows) {
+            for (elem, idx) in subcol.iter().zip((0..*width).cycle()) {
+                cols[idx + n].push(*elem);
+            }
+            n += width;
+        }
+        cols
+    }
+}
+
+struct Layouter<'a, E: FieldElement> {
+    columns: &'a mut Vec<Vec<E>>,
+    frame_len: usize,
+    trace_len: usize,
+}
+
+impl<'a, E: FieldElement> Layouter<'a, E> {
+    fn new(columns: &'a mut Vec<Vec<E>>, frame_len: usize, trace_len: usize) -> Self {
+        Self {
+            columns,
+            frame_len,
+            trace_len,
+        }
+    }
+
+    /// Add one or more columns to the trace. The chunk size determines the number
+    /// of subcolumn elements to place within each frame chunk (defaults to 1)
+    /// starting from the top most row of the chunk.
+    /// Panics if chunk_size is greater than frame_len
+    fn add_columns(&mut self, subcols: &[Vec<E>], chunk_size: Option<usize>) {
+        for subcol in subcols.iter() {
+            let mut col = E::zeroed_vector(self.frame_len * self.trace_len);
+            for (col_chunk, subcol_chunk) in col
+                .chunks_mut(self.frame_len)
+                .zip(subcol.chunks(chunk_size.unwrap_or(1)))
+            {
+                for (n, elem) in subcol_chunk.iter().enumerate() {
+                    col_chunk[n] = *elem
+                }
+            }
+            self.columns.push(col);
+        }
+    }
+
+    /// Add one or more virtual columns to the trace
+    fn add_virtual_columns(&mut self, vcols: &[VirtualColumn<E>]) {
+        for vcol in vcols.iter() {
+            let subcol = vcol.to_column();
+            self.add_columns(&[subcol], Some(vcol.subcols.len()));
+        }
+    }
+
+    /// Resize columns to next power of two
+    fn resize_all(&mut self) {
+        let trace_len_pow2 = self.columns[0].len().next_power_of_two();
+        for column in self.columns.iter_mut() {
+            column.truncate(self.trace_len);
+            let last_value = column.last().copied().unwrap();
+            column.resize(trace_len_pow2, last_value);
+        }
+    }
 }
 
 impl ExecutionTrace {
-    /// Builds an execution trace from the memory and state
-    pub(super) fn new(num_steps: usize, memory: &Memory, state: &State) -> Self {
-        let mut memory_trace = memory.into_trace();
-        let mut state_trace = state.into_trace();
-        let trace_len = vec![memory_trace.len(), state_trace.len()]
-            .iter()
-            .max()
-            .unwrap()
-            .next_power_of_two();
-        for column in memory_trace.iter_mut() {
-            column.truncate(num_steps);
-            let last_value = column.last().copied().unwrap();
-            column.resize(trace_len, last_value);
+    /// Builds an execution trace
+    pub(super) fn new(num_steps: usize, state: &State) -> Self {
+        // TODO: Append dummy (0,0) public memory values to mem_a and mem_v
+
+        // TODO: Don't hardcode index values here
+        let mut t0 = vec![];
+        let mut t1 = vec![];
+        for step in 0..num_steps {
+            t0.push(state.flags[9][step] * state.mem_v[1][step]); // f_pc_jnz * dst
+            t1.push(t0[step] * state.res[0][step]); // t_0 * res
         }
-        for column in state_trace.iter_mut() {
-            column.truncate(num_steps);
-            let last_value = column.last().copied().unwrap();
-            column.resize(trace_len, last_value);
-        }
-        for i in 0..state_trace.len() {
-            for j in 0..trace_len {
-                print!("{:?} ", state_trace[i][j].as_int());
-            }
-            println!("");
-        }
+
+        // Layout the trace
+        let mut columns: Vec<Vec<Felt>> = Vec::with_capacity(TRACE_WIDTH);
+        let mut layouter = Layouter::new(&mut columns, 1, num_steps);
+        layouter.add_columns(&state.flags, None);
+        layouter.add_columns(&state.res, None);
+        layouter.add_columns(&state.mem_p, None);
+        layouter.add_columns(&state.mem_a, None);
+        layouter.add_columns(&state.mem_v, None);
+        layouter.add_columns(&state.offsets, None);
+        layouter.add_columns(&[t0, t1], None);
+        layouter.resize_all();
+
         Self {
+            layout: TraceLayout::new(TRACE_WIDTH, [2], [2]),
             meta: Vec::new(),
-            memory: memory_trace,
-            state: state_trace,
+            trace: Matrix::new(columns),
         }
     }
 }
@@ -51,38 +137,111 @@ impl ExecutionTrace {
 impl Trace for ExecutionTrace {
     type BaseField = Felt;
 
-    fn width(&self) -> usize {
-        TRACE_WIDTH
+    fn layout(&self) -> &TraceLayout {
+        &self.layout
     }
 
     fn length(&self) -> usize {
-        self.state[0].len()
-    }
-
-    fn get(&self, col_idx: usize, row_idx: usize) -> Felt {
-        match col_idx {
-            i if STATE_TRACE_RANGE.contains(&i) => self.state[i - STATE_TRACE_OFFSET][row_idx],
-            i if MEM_TRACE_RANGE.contains(&i) => self.memory[i - MEM_TRACE_OFFSET][row_idx],
-            _ => panic!("invalid column index"),
-        }
+        self.trace.num_rows()
     }
 
     fn meta(&self) -> &[u8] {
         &self.meta
     }
 
-    fn read_row_into(&self, step: usize, target: &mut [Felt]) {
-        for (i, column) in self.state.iter().enumerate() {
-            target[i + STATE_TRACE_OFFSET] = column[step];
-        }
-        for (i, column) in self.memory.iter().enumerate() {
-            target[i + MEM_TRACE_OFFSET] = column[step];
-        }
+    fn main_segment(&self) -> &Matrix<Felt> {
+        &self.trace
     }
 
-    fn into_columns(self) -> Vec<Vec<Felt>> {
-        let mut result: Vec<Vec<Felt>> = self.state.into();
-        self.memory.into_iter().for_each(|v| result.push(v));
-        result
+    fn build_aux_segment<E>(
+        &mut self,
+        aux_segments: &[Matrix<E>],
+        rand_elements: &[E],
+    ) -> Option<Matrix<E>>
+    where
+        E: FieldElement<BaseField = Self::BaseField>,
+    {
+        match aux_segments.len() {
+            0 => build_aux_segment_mem(self, rand_elements),
+            1 => build_aux_segment_rc(self, rand_elements),
+            _ => None,
+        }
     }
+}
+
+/// Write documentation
+fn build_aux_segment_mem<E>(trace: &ExecutionTrace, rand_elements: &[E]) -> Option<Matrix<E>>
+where
+    E: FieldElement + From<Felt>,
+{
+    let z = rand_elements[0];
+    let alpha = rand_elements[1];
+
+    let main = trace.main_segment();
+    let cols_a = MEM_A_TRACE_RANGE
+        .map(|i| main.get_column(i).to_vec())
+        .collect::<Vec<_>>();
+    let cols_v = MEM_V_TRACE_RANGE
+        .map(|i| main.get_column(i).to_vec())
+        .collect::<Vec<_>>();
+
+    // Pack main trace columns into virtual columns
+    let a = VirtualColumn::new(&cols_a[..]).to_column();
+    let v = VirtualColumn::new(&cols_v[..]).to_column();
+
+    // Construct two additional virtual columns sorted by memory access
+    let mut indices = (0..a.len()).collect::<Vec<_>>();
+    indices.sort_by_key(|&i| a[i].as_int());
+    let a_prime = indices.iter().map(|x| a[*x].into()).collect::<Vec<E>>();
+    let v_prime = indices.iter().map(|x| v[*x].into()).collect::<Vec<E>>();
+
+    // TODO: Append public memory values to a_prime and v_prime
+
+    let mut p = vec![E::ONE; trace.length() * MEM_A_TRACE_WIDTH];
+    let p_len = p.len();
+    for i in 0..p_len - 2 {
+        let a_i: E = a[i].into();
+        let v_i: E = a[i].into();
+        p[i + 1] = (z - (a_i + alpha * v_i).into()) * p[i]
+            / (z - (a_prime[i] + alpha * v_prime[i]).into());
+    }
+    p[p_len - 1] = E::ONE;
+
+    // Split virtual columns into separate auxiliary columns
+    let aux_columns = VirtualColumn::new(&[a_prime, v_prime, p]).to_columns(&[4, 4, 4]);
+    Some(Matrix::new(aux_columns))
+}
+
+/// Write documentation
+fn build_aux_segment_rc<E>(trace: &ExecutionTrace, rand_elements: &[E]) -> Option<Matrix<E>>
+where
+    E: FieldElement + From<Felt>,
+{
+    let z = rand_elements[2];
+
+    let main = trace.main_segment();
+    let cols_a = OFF_X_TRACE_RANGE
+        .map(|i| main.get_column(i).to_vec())
+        .collect::<Vec<_>>();
+
+    // Pack main trace columns into virtual columns
+    let a = VirtualColumn::new(&cols_a[..]).to_column();
+
+    // Construct two additional virtual columns sorted by offset values
+    let mut indices = (0..a.len()).collect::<Vec<_>>();
+    indices.sort_by_key(|&i| a[i].as_int());
+    let a_prime = indices.iter().map(|x| a[*x].into()).collect::<Vec<E>>();
+
+    // TODO: We need to add unused/blank main and aux trace cells to fill gaps in the range check
+    // This should be done when laying out the main trace
+
+    let mut p = vec![E::ONE; trace.length()];
+    for i in 0..a.len() - 2 {
+        let a_i: E = a[i].into();
+        p[i + 1] = (z - a_i) * p[i] / (z - a_i);
+    }
+
+    // Split virtual columns into separate auxiliary columns
+    let aux_columns = VirtualColumn::new(&[a_prime, p]).to_columns(&[3, 3]);
+    Some(Matrix::new(aux_columns))
 }

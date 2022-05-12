@@ -1,20 +1,25 @@
-use giza_core::{Felt, FieldElement};
+#![feature(generic_associated_types)]
+
+use giza_core::{ExtensionOf, Felt, FieldElement, P_M_OFFSET};
 use winter_air::{
-    Air, AirContext, Assertion, EvaluationFrame, ProofOptions as WinterProofOptions, TraceInfo,
-    TransitionConstraintDegree,
+    Air, AirContext, Assertion, AuxTraceRandElements, ProofOptions as WinterProofOptions,
+    TraceInfo, TransitionConstraintDegree,
 };
 use winter_utils::{ByteWriter, Serializable};
 
 // EXPORTS
 // ================================================================================================
 
-pub use winter_air::{FieldExtension, HashFunction};
+pub use winter_air::{EvaluationFrame, FieldExtension, HashFunction};
 
 mod options;
 pub use options::ProofOptions;
 
 mod constraints;
-use constraints::EvaluationResult;
+use constraints::{AuxEvaluationResult, EvaluationResult};
+
+mod frame;
+pub use frame::{AuxEvaluationFrame, MainEvaluationFrame};
 
 // PROCESSOR AIR
 // ================================================================================================
@@ -31,30 +36,60 @@ pub struct ProcessorAir {
 impl Air for ProcessorAir {
     type BaseField = Felt;
     type PublicInputs = PublicInputs;
+    type Frame<E: FieldElement> = MainEvaluationFrame<E>;
+    type AuxFrame<E: FieldElement> = AuxEvaluationFrame<E>;
 
     fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: WinterProofOptions) -> Self {
-        let mut degrees = vec![];
+        let mut main_degrees = vec![];
         for _ in 0..=14 {
-            degrees.push(TransitionConstraintDegree::new(2));
+            main_degrees.push(TransitionConstraintDegree::new(2));
         }
-        degrees.push(TransitionConstraintDegree::new(1));
-        degrees.push(TransitionConstraintDegree::new(2));
-        degrees.push(TransitionConstraintDegree::new(2));
-        degrees.push(TransitionConstraintDegree::new(2));
-        degrees.push(TransitionConstraintDegree::new(2));
-        degrees.push(TransitionConstraintDegree::new(1));
-        degrees.push(TransitionConstraintDegree::new(2));
-        degrees.push(TransitionConstraintDegree::new(2));
-        degrees.push(TransitionConstraintDegree::new(2));
-        degrees.push(TransitionConstraintDegree::new(2));
-        degrees.push(TransitionConstraintDegree::new(2));
-        degrees.push(TransitionConstraintDegree::new(3));
-        degrees.push(TransitionConstraintDegree::new(2));
-        degrees.push(TransitionConstraintDegree::new(2));
-        degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(1));
+        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(1));
+        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(3));
+        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(2));
+
+        let aux_degrees = vec![
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+        ];
 
         Self {
-            context: AirContext::new(trace_info, degrees, options),
+            context: AirContext::new_multi_segment(
+                trace_info,
+                main_degrees,
+                aux_degrees,
+                4,
+                1,
+                options,
+            ),
             pc_init: pub_inputs.pc_init,
             ap_init: pub_inputs.ap_init,
             pc_fin: pub_inputs.pc_fin,
@@ -74,9 +109,20 @@ impl Air for ProcessorAir {
         ]
     }
 
+    fn get_aux_assertions<E: FieldElement + From<Self::BaseField>>(
+        &self,
+        aux_rand_elements: &AuxTraceRandElements<E>,
+    ) -> Vec<Assertion<E>> {
+        // TODO: Modify assertions to constrain public memory
+        // TODO: Modify assertions to constrain rc_min and rc_max
+        // TODO: Abstract away specific trace layout (i.e. P_M_OFFSET + 3)
+        let last_step = self.trace_length() - 1;
+        vec![Assertion::single(P_M_OFFSET + 3, last_step, E::ONE)]
+    }
+
     fn evaluate_transition<E: FieldElement + From<Felt>>(
         &self,
-        frame: &EvaluationFrame<E>,
+        frame: &MainEvaluationFrame<E>,
         _periodic_values: &[E],
         result: &mut [E],
     ) {
@@ -84,7 +130,21 @@ impl Air for ProcessorAir {
         result.evaluate_operand_constraints(frame);
         result.evaluate_register_constraints(frame);
         result.evaluate_opcode_constraints(frame);
-        result.evaluate_memory_constraints(frame);
+    }
+
+    fn evaluate_aux_transition<
+        E: FieldElement + From<Felt>,
+        F: FieldElement + From<Felt> + ExtensionOf<E>,
+    >(
+        &self,
+        main_frame: &MainEvaluationFrame<E>,
+        aux_frame: &AuxEvaluationFrame<F>,
+        _periodic_values: &[E],
+        aux_rand_elements: &AuxTraceRandElements<F>,
+        result: &mut [F],
+    ) {
+        result.evaluate_memory_constraints(main_frame, aux_frame, aux_rand_elements);
+        result.evaluate_range_check_constraints(main_frame, aux_frame, aux_rand_elements);
     }
 
     fn context(&self) -> &AirContext<Felt> {

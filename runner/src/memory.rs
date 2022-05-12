@@ -4,9 +4,9 @@ use std::convert::TryInto;
 use std::fmt::{Display, Formatter, Result};
 use std::ops::{Index, IndexMut};
 
-use super::MemoryTrace;
+//use super::MemoryTrace;
 use core::iter::repeat;
-use giza_core::{Felt, FieldHelpers, Word, MEM_TRACE_WIDTH};
+use giza_core::{Felt, FieldHelpers, Word}; //, MEM_TRACE_WIDTH};
 
 /// This data structure stores the memory of the program
 pub struct Memory {
@@ -94,22 +94,22 @@ impl Memory {
         self[addr].map(|x| x.word())
     }
 
-    pub fn into_trace(&self) -> MemoryTrace {
-        let mut trace = Vec::with_capacity(MEM_TRACE_WIDTH);
-        for _ in 0..MEM_TRACE_WIDTH {
-            trace.extend_from_slice(&[vec![Felt::new(0)]]);
-        }
-        trace
-            .try_into()
-            .expect("Failed to convert vector to an array")
-    }
+    //pub fn into_trace(&self) -> MemoryTrace {
+    //    let mut trace = Vec::with_capacity(MEM_TRACE_WIDTH);
+    //    for _ in 0..MEM_TRACE_WIDTH {
+    //        trace.extend_from_slice(&[vec![Felt::new(0)]]);
+    //    }
+    //    trace
+    //        .try_into()
+    //        .expect("Failed to convert vector to an array")
+    //}
 }
 
 #[cfg(test)]
 mod tests {
     use super::Felt as F;
     use super::*;
-    use giza_core::{Felt, FieldHelpers, Word, MEM_TRACE_WIDTH};
+    use giza_core::{Felt, FieldHelpers, Word};
 
     #[test]
     fn test_cairo_bytecode() {

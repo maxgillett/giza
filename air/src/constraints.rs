@@ -1,17 +1,31 @@
-use super::EvaluationFrame;
-use giza_core::{flags::*, Decomposition, Felt, FieldElement};
+use super::{AuxEvaluationFrame, AuxTraceRandElements, EvaluationFrame, MainEvaluationFrame};
+use giza_core::{
+    flags::*, ExtensionOf, Felt, FieldElement, FlagDecomposition, OffsetDecomposition,
+};
 
-pub trait EvaluationResult<E: FieldElement + From<Felt>> {
-    fn evaluate_instr_constraints(&mut self, frame: &EvaluationFrame<E>);
-    fn evaluate_operand_constraints(&mut self, frame: &EvaluationFrame<E>);
-    fn evaluate_register_constraints(&mut self, frame: &EvaluationFrame<E>);
-    fn evaluate_opcode_constraints(&mut self, frame: &EvaluationFrame<E>);
-    fn evaluate_memory_constraints(&mut self, frame: &EvaluationFrame<E>);
+pub trait EvaluationResult<E: FieldElement> {
+    fn evaluate_instr_constraints(&mut self, frame: &MainEvaluationFrame<E>);
+    fn evaluate_operand_constraints(&mut self, frame: &MainEvaluationFrame<E>);
+    fn evaluate_register_constraints(&mut self, frame: &MainEvaluationFrame<E>);
+    fn evaluate_opcode_constraints(&mut self, frame: &MainEvaluationFrame<E>);
 }
 
-const TWO: Felt = Felt::new(2);
+pub trait AuxEvaluationResult<E: FieldElement, F: FieldElement + ExtensionOf<E>> {
+    fn evaluate_memory_constraints(
+        &mut self,
+        main_frame: &MainEvaluationFrame<E>,
+        aux_frame: &AuxEvaluationFrame<F>,
+        aux_rand_elements: &AuxTraceRandElements<F>,
+    );
+    fn evaluate_range_check_constraints(
+        &mut self,
+        main_frame: &MainEvaluationFrame<E>,
+        aux_frame: &AuxEvaluationFrame<F>,
+        aux_rand_elements: &AuxTraceRandElements<F>,
+    );
+}
 
-/// Constraint numbers for evaluation result
+/// Main constraint identifiers
 pub const INST: usize = 16;
 pub const DST_ADDR: usize = 17;
 pub const OP0_ADDR: usize = 18;
@@ -26,12 +40,12 @@ pub const MUL: usize = 26;
 pub const CALL_1: usize = 27;
 pub const CALL_2: usize = 28;
 pub const ASSERT_EQ: usize = 29;
-pub const MEMORY_1: usize = 30;
-pub const MEMORY_2: usize = 31;
+
+const TWO: Felt = Felt::new(2);
 
 impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
-    fn evaluate_instr_constraints(&mut self, frame: &EvaluationFrame<E>) {
-        let curr = TraceRow::new(frame.current());
+    fn evaluate_instr_constraints(&mut self, frame: &MainEvaluationFrame<E>) {
+        let curr = frame.current();
         // Bit constraints
         for (n, flag) in curr.flags().into_iter().enumerate() {
             self[n] = match n {
@@ -60,8 +74,8 @@ impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
             - curr.inst();
     }
 
-    fn evaluate_operand_constraints(&mut self, frame: &EvaluationFrame<E>) {
-        let curr = TraceRow::new(frame.current());
+    fn evaluate_operand_constraints(&mut self, frame: &MainEvaluationFrame<E>) {
+        let curr = frame.current();
         let ap = curr.ap();
         let fp = curr.fp();
         let pc = curr.pc();
@@ -78,9 +92,9 @@ impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
             - curr.op1_addr();
     }
 
-    fn evaluate_register_constraints(&mut self, frame: &EvaluationFrame<E>) {
-        let curr = TraceRow::new(frame.current());
-        let next = TraceRow::new(frame.next());
+    fn evaluate_register_constraints(&mut self, frame: &MainEvaluationFrame<E>) {
+        let curr = frame.current();
+        let next = frame.next();
         let one: E = Felt::ONE.into();
 
         // ap and fp constraints
@@ -108,8 +122,8 @@ impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
         self[T1] = curr.t0() * curr.res();
     }
 
-    fn evaluate_opcode_constraints(&mut self, frame: &EvaluationFrame<E>) {
-        let curr = TraceRow::new(frame.current());
+    fn evaluate_opcode_constraints(&mut self, frame: &MainEvaluationFrame<E>) {
+        let curr = frame.current();
         let one: E = Felt::ONE.into();
         let mul = curr.op0() * curr.op1();
 
@@ -121,172 +135,66 @@ impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
         self[CALL_2] = curr.f_opc_call() * (curr.op0() - (curr.pc() + curr.inst_size()));
         self[ASSERT_EQ] = curr.f_opc_aeq() * (curr.dst() - curr.res());
     }
-
-    fn evaluate_memory_constraints(&mut self, _frame: &EvaluationFrame<E>) {
-        // TODO
-        //let curr = TraceRow::new(frame.current());
-        //let next = TraceRow::new(frame.next());
-        //// Continuity constraint
-        //self[MEMORY_1] =
-        //    (next.a_prime() - curr.a_prime()) * (next.a_prime() - curr.a_prime() - ONE.into());
-        //// Single-valued constraint
-        //self[MEMORY_2] =
-        //    (next.v_prime() - curr.v_prime()) * (next.a_prime() - curr.a_prime() - ONE.into());
-        //// Permutation constraints
-    }
 }
 
-struct TraceRow<'a, E: FieldElement + From<Felt>>(&'a [E]);
+impl<E, F> AuxEvaluationResult<E, F> for [F]
+where
+    E: FieldElement + From<Felt>,
+    F: FieldElement + From<Felt> + ExtensionOf<E>,
+{
+    fn evaluate_memory_constraints(
+        &mut self,
+        main_frame: &MainEvaluationFrame<E>,
+        aux_frame: &AuxEvaluationFrame<F>,
+        aux_rand_elements: &AuxTraceRandElements<F>,
+    ) {
+        // TODO: Don't hardcode width and offset values
 
-impl<'a, E: FieldElement + From<Felt>> TraceRow<'a, E> {
-    pub fn new(v: &'a [E]) -> TraceRow<'a, E> {
-        TraceRow(v)
-    }
-    /// Registers
-    fn pc(&self) -> E {
-        self.0[0]
-    }
-    fn ap(&self) -> E {
-        self.0[1]
-    }
-    fn fp(&self) -> E {
-        self.0[2]
-    }
-    /// Operand offsets
-    fn inst(&self) -> E {
-        self.0[19]
-    }
-    fn inst_size(&self) -> E {
-        self.f_op1_val() + Felt::ONE.into()
-    }
-    fn dst_addr(&self) -> E {
-        // TODO
-        self.0[23]
-    }
-    fn op0_addr(&self) -> E {
-        // TODO
-        self.0[24]
-    }
-    fn op1_addr(&self) -> E {
-        // TODO
-        self.0[25]
-    }
-    /// Auxiliary values
-    fn dst(&self) -> E {
-        self.0[26]
-    }
-    fn op0(&self) -> E {
-        self.0[27]
-    }
-    fn op1(&self) -> E {
-        self.0[28]
-    }
-    fn res(&self) -> E {
-        self.0[29]
-    }
-    /// Constraint auxiliary values
-    fn t0(&self) -> E {
-        self.0[30]
-    }
-    fn t1(&self) -> E {
-        self.0[31]
-    }
-    ///// Memory
-    //fn a_prime(&self) -> E {
-    //    self.0[29]
-    //}
-    //fn v_prime(&self) -> E {
-    //    self.0[30]
-    //}
-}
+        let curr = main_frame.segment();
+        let aux = aux_frame.segment();
+        for i in 0..4 {
+            let random_elements = aux_rand_elements.get_segment_elements(0);
+            let alpha = random_elements[0];
+            let z = random_elements[1];
 
-impl<'a, E: FieldElement + From<Felt>> Decomposition<E> for TraceRow<'a, E> {
-    fn flags(&self) -> Vec<E> {
-        let mut flags = Vec::with_capacity(NUM_FLAGS);
-        // The most significant 16 bits
-        for i in 0..NUM_FLAGS {
-            flags.push(self.flag_at(i));
+            // Continuity constraint
+            self[i] = ((aux.a_m_prime(i + 1) - aux.a_m_prime(i))
+                * (aux.a_m_prime(i + 1) - aux.a_m_prime(i) - F::ONE))
+                .into();
+
+            // Single-valued constraint
+            self[i + 4] = ((aux.v_m_prime(i + 1) - aux.v_m_prime(i))
+                * (aux.a_m_prime(i + 1) - aux.a_m_prime(i) - F::ONE))
+                .into();
+
+            // Cumulative product step
+            let a_m: F = curr.a_m(i).into();
+            let v_m: F = curr.v_m(i).into();
+            self[i + 8] = (z - (aux.a_m_prime(i) + alpha * aux.v_m_prime(i))) * aux.p_m(i + 1)
+                - (z - (a_m + alpha * v_m)) * aux.p_m(i)
         }
-        flags
     }
 
-    fn flag_at(&self, pos: usize) -> E {
-        self.0[3 + pos] //  - E::from(2u8) * self.0[3 + pos + 1]
-    }
+    fn evaluate_range_check_constraints(
+        &mut self,
+        main_frame: &MainEvaluationFrame<E>,
+        aux_frame: &AuxEvaluationFrame<F>,
+        aux_rand_elements: &AuxTraceRandElements<F>,
+    ) {
+        let curr = main_frame.segment();
+        let aux = aux_frame.segment();
+        for i in 0..4 {
+            let random_elements = aux_rand_elements.get_segment_elements(1);
+            let z = random_elements[0];
 
-    fn f_dst_fp(&self) -> E {
-        self.0[3]
-    }
+            // Continuity constraint
+            self[i + 12] = ((aux.a_rc_prime(i + 1) - aux.a_rc_prime(i))
+                * (aux.a_rc_prime(i + 1) - aux.a_rc_prime(i) - F::ONE))
+                .into();
 
-    fn f_op0_fp(&self) -> E {
-        self.0[4]
-    }
-
-    fn f_op1_val(&self) -> E {
-        self.0[5]
-    }
-
-    fn f_op1_fp(&self) -> E {
-        self.0[6]
-    }
-
-    fn f_op1_ap(&self) -> E {
-        self.0[7]
-    }
-
-    fn f_res_add(&self) -> E {
-        self.0[8]
-    }
-
-    fn f_res_mul(&self) -> E {
-        self.0[9]
-    }
-
-    fn f_pc_abs(&self) -> E {
-        self.0[10]
-    }
-
-    fn f_pc_rel(&self) -> E {
-        self.0[11]
-    }
-
-    fn f_pc_jnz(&self) -> E {
-        self.0[12]
-    }
-
-    fn f_ap_add(&self) -> E {
-        self.0[13]
-    }
-
-    fn f_ap_one(&self) -> E {
-        self.0[14]
-    }
-
-    fn f_opc_call(&self) -> E {
-        self.0[15]
-    }
-
-    fn f_opc_ret(&self) -> E {
-        self.0[16]
-    }
-
-    fn f_opc_aeq(&self) -> E {
-        self.0[17]
-    }
-
-    fn f15(&self) -> E {
-        self.0[18]
-    }
-
-    fn off_dst(&self) -> E {
-        self.0[20]
-    }
-
-    fn off_op0(&self) -> E {
-        self.0[21]
-    }
-
-    fn off_op1(&self) -> E {
-        self.0[22]
+            // Cumulative product step
+            self[i + 15] =
+                (z - aux.a_rc_prime(i)) * aux.p_rc(i + 1) - (z - curr.a_rc(i).into()) * aux.p_rc(i)
+        }
     }
 }
