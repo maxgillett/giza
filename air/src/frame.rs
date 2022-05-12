@@ -1,5 +1,5 @@
 use super::FieldElement;
-use giza_core::{flags::*, Felt, FlagDecomposition, OffsetDecomposition, *};
+use giza_core::{flags::*, *};
 use winter_air::{Air, EvaluationFrame, Table};
 use winter_utils::TableReader;
 
@@ -85,6 +85,7 @@ enum DataSegment {
     MemoryAddress,
     MemoryValues,
     Offsets,
+    TempValues,
 }
 
 impl<'a, E: FieldElement> MainFrameSegment<'a, E> {
@@ -101,6 +102,7 @@ impl<'a, E: FieldElement> MainFrameSegment<'a, E> {
             DataSegment::MemoryAddress => MEM_A_TRACE_OFFSET,
             DataSegment::MemoryValues => MEM_V_TRACE_OFFSET,
             DataSegment::Offsets => OFF_X_TRACE_OFFSET,
+            DataSegment::TempValues => TX_TRACE_OFFSET,
         };
         self.table.get_row(self.row_start)[offset + pos]
     }
@@ -160,12 +162,10 @@ impl<'a, E: FieldElement + From<Felt>> MainFrameSegment<'a, E> {
     }
     /// Constraint auxiliary values
     pub fn t0(&self) -> E {
-        // TODO
-        unimplemented!()
+        self.get(0, DataSegment::TempValues)
     }
     pub fn t1(&self) -> E {
-        // TODO
-        unimplemented!()
+        self.get(1, DataSegment::TempValues)
     }
     /// Virtual columns of memory addreses and values
     pub fn a_m(&self, idx: usize) -> E {

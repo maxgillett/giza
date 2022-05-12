@@ -127,7 +127,12 @@ impl ExecutionTrace {
         layouter.resize_all();
 
         Self {
-            layout: TraceLayout::new(TRACE_WIDTH, [2], [2]),
+            // TODO: Enable support in Winterfell for additional aux segments
+            layout: TraceLayout::new(
+                TRACE_WIDTH,
+                [12], // aux_segment widths
+                [2],  // aux_segment rands
+            ),
             meta: Vec::new(),
             trace: Matrix::new(columns),
         }

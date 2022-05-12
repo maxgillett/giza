@@ -55,7 +55,7 @@ impl Air for ProcessorAir {
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(3));
+        main_degrees.push(TransitionConstraintDegree::new(3)); // TODO: Add another trace column for MUL to reduce this to 2
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
@@ -87,7 +87,7 @@ impl Air for ProcessorAir {
                 main_degrees,
                 aux_degrees,
                 4,
-                1,
+                2,
                 options,
             ),
             pc_init: pub_inputs.pc_init,
@@ -117,7 +117,7 @@ impl Air for ProcessorAir {
         // TODO: Modify assertions to constrain rc_min and rc_max
         // TODO: Abstract away specific trace layout (i.e. P_M_OFFSET + 3)
         let last_step = self.trace_length() - 1;
-        vec![Assertion::single(P_M_OFFSET + 3, last_step, E::ONE)]
+        vec![Assertion::single(11, last_step, E::ONE)]
     }
 
     fn evaluate_transition<E: FieldElement + From<Felt>>(

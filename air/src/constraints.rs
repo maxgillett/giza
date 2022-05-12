@@ -1,7 +1,5 @@
-use super::{AuxEvaluationFrame, AuxTraceRandElements, EvaluationFrame, MainEvaluationFrame};
-use giza_core::{
-    flags::*, ExtensionOf, Felt, FieldElement, FlagDecomposition, OffsetDecomposition,
-};
+use super::{AuxEvaluationFrame, AuxTraceRandElements, MainEvaluationFrame};
+use giza_core::{ExtensionOf, Felt, FieldElement, FlagDecomposition, OffsetDecomposition};
 
 pub trait EvaluationResult<E: FieldElement> {
     fn evaluate_instr_constraints(&mut self, frame: &MainEvaluationFrame<E>);
@@ -158,14 +156,12 @@ where
             let z = random_elements[1];
 
             // Continuity constraint
-            self[i] = ((aux.a_m_prime(i + 1) - aux.a_m_prime(i))
-                * (aux.a_m_prime(i + 1) - aux.a_m_prime(i) - F::ONE))
-                .into();
+            self[i] = (aux.a_m_prime(i + 1) - aux.a_m_prime(i))
+                * (aux.a_m_prime(i + 1) - aux.a_m_prime(i) - F::ONE);
 
             // Single-valued constraint
-            self[i + 4] = ((aux.v_m_prime(i + 1) - aux.v_m_prime(i))
-                * (aux.a_m_prime(i + 1) - aux.a_m_prime(i) - F::ONE))
-                .into();
+            self[i + 4] = (aux.v_m_prime(i + 1) - aux.v_m_prime(i))
+                * (aux.a_m_prime(i + 1) - aux.a_m_prime(i) - F::ONE);
 
             // Cumulative product step
             let a_m: F = curr.a_m(i).into();
@@ -188,9 +184,8 @@ where
             let z = random_elements[0];
 
             // Continuity constraint
-            self[i + 12] = ((aux.a_rc_prime(i + 1) - aux.a_rc_prime(i))
-                * (aux.a_rc_prime(i + 1) - aux.a_rc_prime(i) - F::ONE))
-                .into();
+            self[i + 12] = (aux.a_rc_prime(i + 1) - aux.a_rc_prime(i))
+                * (aux.a_rc_prime(i + 1) - aux.a_rc_prime(i) - F::ONE);
 
             // Cumulative product step
             self[i + 15] =
