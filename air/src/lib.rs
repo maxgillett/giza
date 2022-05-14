@@ -1,6 +1,8 @@
 #![feature(generic_associated_types)]
 
-use giza_core::{ExtensionOf, Felt, FieldElement, P_M_OFFSET};
+use giza_core::{
+    ExtensionOf, Felt, FieldElement, MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET, P_M_OFFSET,
+};
 use winter_air::{
     Air, AirContext, Assertion, AuxTraceRandElements, ProofOptions as WinterProofOptions,
     TraceInfo, TransitionConstraintDegree,
@@ -61,6 +63,7 @@ impl Air for ProcessorAir {
         main_degrees.push(TransitionConstraintDegree::new(2));
 
         let aux_degrees = vec![
+            // Memory constraints
             TransitionConstraintDegree::new(2),
             TransitionConstraintDegree::new(2),
             TransitionConstraintDegree::new(2),
@@ -73,12 +76,13 @@ impl Air for ProcessorAir {
             TransitionConstraintDegree::new(2),
             TransitionConstraintDegree::new(2),
             TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
+            // Range check constraints
+            //TransitionConstraintDegree::new(2),
+            //TransitionConstraintDegree::new(2),
+            //TransitionConstraintDegree::new(2),
+            //TransitionConstraintDegree::new(2),
+            //TransitionConstraintDegree::new(2),
+            //TransitionConstraintDegree::new(2),
         ];
 
         Self {
@@ -101,11 +105,11 @@ impl Air for ProcessorAir {
         let last_step = self.trace_length() - 1;
         vec![
             // pc assertions
-            Assertion::single(0, 0, self.pc_init),
-            Assertion::single(0, last_step, self.pc_fin),
+            Assertion::single(MEM_A_TRACE_OFFSET, 0, self.pc_init),
+            Assertion::single(MEM_A_TRACE_OFFSET, last_step, self.pc_fin),
             // ap assertions
-            Assertion::single(1, 0, self.ap_init),
-            Assertion::single(1, last_step, self.ap_fin),
+            Assertion::single(MEM_P_TRACE_OFFSET, 0, self.ap_init),
+            Assertion::single(MEM_P_TRACE_OFFSET, last_step, self.ap_fin),
         ]
     }
 
@@ -117,7 +121,7 @@ impl Air for ProcessorAir {
         // TODO: Modify assertions to constrain rc_min and rc_max
         // TODO: Abstract away specific trace layout (i.e. P_M_OFFSET + 3)
         let last_step = self.trace_length() - 1;
-        vec![Assertion::single(11, last_step, E::ONE)]
+        vec![Assertion::single(P_M_OFFSET + 3, last_step, E::ONE)]
     }
 
     fn evaluate_transition<E: FieldElement + From<Felt>>(

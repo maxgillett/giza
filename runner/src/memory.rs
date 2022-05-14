@@ -94,16 +94,6 @@ impl Memory {
         self.resize(addr.to_u64()); // Resize if necessary
         self[addr].map(|x| x.word())
     }
-
-    //pub fn into_trace(&self) -> MemoryTrace {
-    //    let mut trace = Vec::with_capacity(MEM_TRACE_WIDTH);
-    //    for _ in 0..MEM_TRACE_WIDTH {
-    //        trace.extend_from_slice(&[vec![Felt::new(0)]]);
-    //    }
-    //    trace
-    //        .try_into()
-    //        .expect("Failed to convert vector to an array")
-    //}
 }
 
 #[cfg(test)]

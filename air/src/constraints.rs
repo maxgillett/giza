@@ -152,8 +152,8 @@ where
         let aux = aux_frame.segment();
         for i in 0..4 {
             let random_elements = aux_rand_elements.get_segment_elements(0);
-            let alpha = random_elements[0];
-            let z = random_elements[1];
+            let z = random_elements[0];
+            let alpha = random_elements[1];
 
             // Continuity constraint
             self[i] = (aux.a_m_prime(i + 1) - aux.a_m_prime(i))

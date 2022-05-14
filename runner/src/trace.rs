@@ -181,7 +181,7 @@ impl Trace for ExecutionTrace {
     {
         match aux_segments.len() {
             0 => build_aux_segment_mem(self, rand_elements),
-            1 => build_aux_segment_rc(self, rand_elements),
+            //1 => build_aux_segment_rc(self, rand_elements),
             _ => None,
         }
     }
@@ -203,19 +203,21 @@ where
     let cols_v = MEM_V_TRACE_RANGE
         .map(|i| main.get_column(i).to_vec())
         .collect::<Vec<_>>();
-    let mut a = VirtualColumn::new(&cols_a[..]).to_column();
-    let mut v = VirtualColumn::new(&cols_v[..]).to_column();
-    let len = a.len() - trace.public_mem.size() as usize - 1;
-    a.truncate(len);
-    v.truncate(len);
+    let a = VirtualColumn::new(&cols_a[..]).to_column();
+    let v = VirtualColumn::new(&cols_v[..]).to_column();
 
-    // Extend a and v with public memory addresses
-    a.extend(
+    // Replace dummy public memory accesses
+    let mut a_replaced = a.clone();
+    let mut v_replaced = v.clone();
+    let len = a_replaced.len() - trace.public_mem.size() as usize - 1;
+    a_replaced.truncate(len);
+    v_replaced.truncate(len);
+    a_replaced.extend(
         (0..trace.public_mem.size() - 1)
             .map(|x| Felt::from(x))
             .collect::<Vec<Felt>>(),
     );
-    v.extend(
+    v_replaced.extend(
         trace
             .public_mem
             .data
@@ -225,17 +227,23 @@ where
     );
 
     // Construct two additional virtual columns sorted by memory access
-    let mut indices = (0..a.len()).collect::<Vec<_>>();
-    indices.sort_by_key(|&i| a[i].as_int());
-    let a_prime = indices.iter().map(|x| a[*x].into()).collect::<Vec<E>>();
-    let v_prime = indices.iter().map(|x| v[*x].into()).collect::<Vec<E>>();
+    let mut indices = (0..a_replaced.len()).collect::<Vec<_>>();
+    indices.sort_by_key(|&i| a_replaced[i].as_int());
+    let a_prime = indices
+        .iter()
+        .map(|x| a_replaced[*x].into())
+        .collect::<Vec<E>>();
+    let v_prime = indices
+        .iter()
+        .map(|x| v_replaced[*x].into())
+        .collect::<Vec<E>>();
 
     // Compute virtual column of permutation products
     let mut p = vec![E::ONE; trace.length() * MEM_A_TRACE_WIDTH];
     let p_len = p.len();
     for i in 0..p_len - 2 {
         let a_i: E = a[i].into();
-        let v_i: E = a[i].into();
+        let v_i: E = v[i].into();
         p[i + 1] = (z - (a_i + alpha * v_i).into()) * p[i]
             / (z - (a_prime[i] + alpha * v_prime[i]).into());
     }
