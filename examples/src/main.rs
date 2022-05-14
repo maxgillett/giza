@@ -47,8 +47,8 @@ fn main() {
     mem.write(Felt::from(23u32), Felt::from(44u32)); // end of program
 
     let mut hints = HintManager::default();
-    hints.push_hint(7, Hint::new(String::from("memory[30]=5"), vec![], None));
-    hints.push_hint(7, Hint::new(String::from("memory[31]=5"), vec![], None));
+    //hints.push_hint(7, Hint::new(String::from("memory[30]=5"), vec![], None));
+    //hints.push_hint(7, Hint::new(String::from("memory[31]=5"), vec![], None));
 
     let mut program = Program::new(&mut mem, 5, 24, Some(hints));
 
