@@ -9,6 +9,7 @@ use core::iter::repeat;
 use giza_core::{Felt, FieldHelpers, Word}; //, MEM_TRACE_WIDTH};
 
 /// This data structure stores the memory of the program
+#[derive(Clone)]
 pub struct Memory {
     /// length of the public memory
     codelen: usize,

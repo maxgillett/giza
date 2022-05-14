@@ -19,7 +19,8 @@ pub use inputs::ProgramInputs;
 //  C.  mem_p   (2)  : Temporary memory pointers (ap and fp)
 //  D.  mem_a   (4)  : Memory addresses (pc, dst_addr, op0_addr, op1_addr)
 //  E.  mem_v   (4)  : Memory values (inst, dst, op0, op1)
-//  F.  offsets (3)  : (off_op0, off_op1, off_dst)
+//  F.  offsets (3)  : (off_dst, off_op0, off_op1)
+//  G.  aux     (2)  : (t0, t1)
 //
 //  A                B C  D    E    F
 // ├xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx┤
@@ -31,11 +32,11 @@ pub const FLAG_TRACE_RANGE: Range<usize> = range(FLAG_TRACE_OFFSET, FLAG_TRACE_W
 
 pub const RES_TRACE_OFFSET: usize = 16;
 pub const RES_TRACE_WIDTH: usize = 1;
-pub const RES_TRACE_RANGE: Range<usize> = range(FLAG_TRACE_OFFSET, RES_TRACE_WIDTH);
+pub const RES_TRACE_RANGE: Range<usize> = range(RES_TRACE_OFFSET, RES_TRACE_WIDTH);
 
 pub const MEM_P_TRACE_OFFSET: usize = 17;
 pub const MEM_P_TRACE_WIDTH: usize = 2;
-pub const MEM_P_TRACE_RANGE: Range<usize> = range(FLAG_TRACE_OFFSET, MEM_P_TRACE_WIDTH);
+pub const MEM_P_TRACE_RANGE: Range<usize> = range(MEM_P_TRACE_OFFSET, MEM_P_TRACE_WIDTH);
 
 pub const MEM_A_TRACE_OFFSET: usize = 19;
 pub const MEM_A_TRACE_WIDTH: usize = 4;

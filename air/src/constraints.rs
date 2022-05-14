@@ -115,7 +115,7 @@ impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
                 * (curr.pc() + curr.inst_size())
             + curr.f_pc_abs() * curr.res()
             + curr.f_pc_rel() * (curr.pc() + curr.res());
-        self[NEXT_PC_2] = E::from(0u8); // FIXME
+        self[NEXT_PC_2] = E::from(0u8); // FIXME: Why is this constraint not evaluating to zero?
         self[T0] = curr.f_pc_jnz() * curr.dst() - curr.t0();
         self[T1] = curr.t0() * curr.res();
     }

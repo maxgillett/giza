@@ -1,3 +1,4 @@
+use crate::memory::Memory;
 use crate::runner::State;
 use giza_core::{
     Felt, FieldElement, StarkField, MEM_A_TRACE_RANGE, MEM_A_TRACE_WIDTH, MEM_V_TRACE_RANGE,
@@ -10,6 +11,7 @@ pub struct ExecutionTrace {
     layout: TraceLayout,
     meta: Vec<u8>,
     trace: Matrix<Felt>,
+    public_mem: Memory,
 }
 
 /// A virtual column is composed of one or more subcolumns.
@@ -103,15 +105,24 @@ impl<'a, E: FieldElement> Layouter<'a, E> {
 
 impl ExecutionTrace {
     /// Builds an execution trace
-    pub(super) fn new(num_steps: usize, state: &State) -> Self {
-        // TODO: Append dummy (0,0) public memory values to mem_a and mem_v
-
+    pub(super) fn new(num_steps: usize, state: &mut State, public_mem: &Memory) -> Self {
         // TODO: Don't hardcode index values here
         let mut t0 = vec![];
         let mut t1 = vec![];
         for step in 0..num_steps {
             t0.push(state.flags[9][step] * state.mem_v[1][step]); // f_pc_jnz * dst
             t1.push(t0[step] * state.res[0][step]); // t_0 * res
+        }
+
+        // Append dummy (0,0) public memory values to mem_a and mem_v
+        let zero_column = vec![Felt::ZERO; public_mem.size() as usize - 1];
+        for (n, col) in VirtualColumn::new(&[zero_column])
+            .to_columns(&[MEM_A_TRACE_WIDTH])
+            .iter()
+            .enumerate()
+        {
+            state.mem_a[n].extend(col);
+            state.mem_v[n].extend(col);
         }
 
         // Layout the trace
@@ -124,6 +135,7 @@ impl ExecutionTrace {
         layouter.add_columns(&state.mem_v, None);
         layouter.add_columns(&state.offsets, None);
         layouter.add_columns(&[t0, t1], None);
+
         layouter.resize_all();
 
         Self {
@@ -135,6 +147,7 @@ impl ExecutionTrace {
             ),
             meta: Vec::new(),
             trace: Matrix::new(columns),
+            public_mem: public_mem.clone(),
         }
     }
 }
@@ -182,6 +195,7 @@ where
     let z = rand_elements[0];
     let alpha = rand_elements[1];
 
+    // Pack main trace columns into virtual columns
     let main = trace.main_segment();
     let cols_a = MEM_A_TRACE_RANGE
         .map(|i| main.get_column(i).to_vec())
@@ -189,10 +203,26 @@ where
     let cols_v = MEM_V_TRACE_RANGE
         .map(|i| main.get_column(i).to_vec())
         .collect::<Vec<_>>();
+    let mut a = VirtualColumn::new(&cols_a[..]).to_column();
+    let mut v = VirtualColumn::new(&cols_v[..]).to_column();
+    let len = a.len() - trace.public_mem.size() as usize - 1;
+    a.truncate(len);
+    v.truncate(len);
 
-    // Pack main trace columns into virtual columns
-    let a = VirtualColumn::new(&cols_a[..]).to_column();
-    let v = VirtualColumn::new(&cols_v[..]).to_column();
+    // Extend a and v with public memory addresses
+    a.extend(
+        (0..trace.public_mem.size() - 1)
+            .map(|x| Felt::from(x))
+            .collect::<Vec<Felt>>(),
+    );
+    v.extend(
+        trace
+            .public_mem
+            .data
+            .iter()
+            .map(|x| x.unwrap().word().into())
+            .collect::<Vec<Felt>>(),
+    );
 
     // Construct two additional virtual columns sorted by memory access
     let mut indices = (0..a.len()).collect::<Vec<_>>();
@@ -200,8 +230,7 @@ where
     let a_prime = indices.iter().map(|x| a[*x].into()).collect::<Vec<E>>();
     let v_prime = indices.iter().map(|x| v[*x].into()).collect::<Vec<E>>();
 
-    // TODO: Append public memory values to a_prime and v_prime
-
+    // Compute virtual column of permutation products
     let mut p = vec![E::ONE; trace.length() * MEM_A_TRACE_WIDTH];
     let p_len = p.len();
     for i in 0..p_len - 2 {
@@ -213,7 +242,19 @@ where
     p[p_len - 1] = E::ONE;
 
     // Split virtual columns into separate auxiliary columns
-    let aux_columns = VirtualColumn::new(&[a_prime, v_prime, p]).to_columns(&[4, 4, 4]);
+    let mut aux_columns = VirtualColumn::new(&[a_prime, v_prime, p]).to_columns(&[4, 4, 4]);
+
+    // Resize auxiliary columns to next power of two
+    let trace_len_pow2 = aux_columns
+        .iter()
+        .map(|x| x.len().next_power_of_two())
+        .max()
+        .unwrap();
+    for column in aux_columns.iter_mut() {
+        let last_value = column.last().copied().unwrap();
+        column.resize(trace_len_pow2, last_value);
+    }
+
     Some(Matrix::new(aux_columns))
 }
 

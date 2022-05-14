@@ -87,7 +87,7 @@ impl Air for ProcessorAir {
                 main_degrees,
                 aux_degrees,
                 4,
-                2,
+                1,
                 options,
             ),
             pc_init: pub_inputs.pc_init,
@@ -144,7 +144,7 @@ impl Air for ProcessorAir {
         result: &mut [F],
     ) {
         result.evaluate_memory_constraints(main_frame, aux_frame, aux_rand_elements);
-        result.evaluate_range_check_constraints(main_frame, aux_frame, aux_rand_elements);
+        //result.evaluate_range_check_constraints(main_frame, aux_frame, aux_rand_elements);
     }
 
     fn context(&self) -> &AirContext<Felt> {

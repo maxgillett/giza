@@ -456,15 +456,15 @@ impl State {
         // Instruction
         self.mem_v[0][step] = s.inst.word();
 
-        // Operands
-        self.mem_v[1][step] = s.dst_addr;
-        self.mem_v[2][step] = s.op0_addr;
-        self.mem_v[3][step] = s.op1_addr;
-
         // Auxiliary values
-        self.mem_a[1][step] = s.dst.unwrap_or(Felt::new(0));
-        self.mem_a[2][step] = s.op0.unwrap_or(Felt::new(0));
-        self.mem_a[3][step] = s.op1.unwrap_or(Felt::new(0));
+        self.mem_v[1][step] = s.dst.unwrap_or(Felt::new(0));
+        self.mem_v[2][step] = s.op0.unwrap_or(Felt::new(0));
+        self.mem_v[3][step] = s.op1.unwrap_or(Felt::new(0));
+
+        // Operands
+        self.mem_a[1][step] = s.dst_addr;
+        self.mem_a[2][step] = s.op0_addr;
+        self.mem_a[3][step] = s.op1_addr;
 
         // Offsets
         self.offsets[0][step] = s.inst.off_dst();
@@ -479,6 +479,8 @@ pub struct Program<'a> {
     steps: Felt,
     /// full execution memory
     mem: &'a mut Memory,
+    /// public memory
+    public_mem: Memory,
     /// initial register state
     init: RegisterState,
     /// final register state
@@ -490,9 +492,11 @@ pub struct Program<'a> {
 impl<'a> Program<'a> {
     /// Creates an execution from the public information (memory and initial pointers)
     pub fn new(mem: &mut Memory, pc: u64, ap: u64, hints: Option<HintManager>) -> Program {
+        let public_mem = mem.clone();
         Program {
             steps: Felt::new(0),
             mem,
+            public_mem,
             init: RegisterState::new(Felt::from(pc), Felt::from(ap), Felt::from(ap)),
             fin: RegisterState::new(Felt::new(0), Felt::new(0), Felt::new(0)),
             hints,
@@ -544,6 +548,6 @@ impl<'a> Program<'a> {
         self.fin = curr;
         self.steps = Felt::from(n as u64);
 
-        Ok(ExecutionTrace::new(n, &state))
+        Ok(ExecutionTrace::new(n, &mut state, &self.public_mem))
     }
 }
