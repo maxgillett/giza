@@ -6,7 +6,7 @@ use crate::memory::Memory;
 use crate::trace::ExecutionTrace;
 use giza_core::{flags::*, *};
 
-use std::convert::TryInto;
+//use std::convert::TryInto;
 
 /// A data structure to store a current step of computation
 pub struct Step<'a> {

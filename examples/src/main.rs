@@ -61,7 +61,9 @@ fn main() {
     // verify correct program execution
     let init = RegisterState::new(5u64, 24u64, 24u64);
     let fin = RegisterState::new(20u64, 41u64, 41u64);
-    let pub_inputs = PublicInputs::new(init, fin, mem.data);
+    let rc_min = 0;
+    let rc_max = 200;
+    let pub_inputs = PublicInputs::new(init, fin, rc_min, rc_max, mem.data);
     match winterfell::verify::<ProcessorAir>(proof, pub_inputs) {
         Ok(_) => println!("Execution verified"),
         Err(err) => println!("Failed to verify execution: {}", err),

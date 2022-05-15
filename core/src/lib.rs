@@ -4,7 +4,7 @@ pub use math::{fields::f128::BaseElement as Felt, ExtensionOf, FieldElement, Sta
 
 pub mod word;
 pub use word::{
-    FieldHelpers, FlagDecomposition, FlagGroupDecomposition, OffsetDecomposition, Word,
+    bias, FieldHelpers, FlagDecomposition, FlagGroupDecomposition, OffsetDecomposition, Word,
 };
 
 pub mod inputs;
@@ -56,16 +56,14 @@ pub const TX_TRACE_RANGE: Range<usize> = range(TX_TRACE_OFFSET, TX_TRACE_WIDTH);
 
 pub const TRACE_WIDTH: usize = 32;
 
-// AUX TRACE LAYOUT
+// AUX TRACE LAYOUT (Memory)
 // -----------------------------------------------------------------------------------------
 //  A.  a_m_prime  (4) : Sorted memory address
 //  B.  v_m_prime  (4) : Sorted memory values
 //  C.  p_m        (4) : Permutation product (memory)
-//  D.  a_rc_prime (3) : Sorted offset values
-//  E.  p_rc       (3) : Permutation product (range check)
 //
-//  A    B    C    D   E
-// ├xxxx|xxxx|xxxx|xxx|xxx┤
+//  A    B    C
+// ├xxxx|xxxx|xxxx┤
 
 pub const A_M_PRIME_OFFSET: usize = 0;
 pub const A_M_PRIME_WIDTH: usize = 4;
@@ -76,10 +74,19 @@ pub const V_M_PRIME_WIDTH: usize = 4;
 pub const P_M_OFFSET: usize = 8;
 pub const P_M_WIDTH: usize = 4;
 
-pub const A_RC_PRIME_OFFSET: usize = 0;
+// AUX TRACE LAYOUT (Range check)
+// -----------------------------------------------------------------------------------------
+//  D.  a_rc_prime (3) : Sorted offset values
+//  E.  p_rc       (3) : Permutation product (range check)
+//
+//  D   E
+// ├xxx|xxx┤
+//
+
+pub const A_RC_PRIME_OFFSET: usize = 12;
 pub const A_RC_PRIME_WIDTH: usize = 3;
 
-pub const P_RC_OFFSET: usize = 3;
+pub const P_RC_OFFSET: usize = 14;
 pub const P_RC_WIDTH: usize = 3;
 
 /// Returns a [Range] initialized with the specified `start` and with `end` set to `start` + `len`.

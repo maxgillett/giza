@@ -179,7 +179,7 @@ where
     ) {
         let curr = main_frame.segment();
         let aux = aux_frame.segment();
-        for i in 0..4 {
+        for i in 0..3 {
             let random_elements = aux_rand_elements.get_segment_elements(1);
             let z = random_elements[0];
 

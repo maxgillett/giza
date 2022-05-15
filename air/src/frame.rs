@@ -182,15 +182,15 @@ impl<'a, E: FieldElement + From<Felt>> MainFrameSegment<'a, E> {
 
 impl<'a, E: FieldElement + From<Felt>> OffsetDecomposition<E> for MainFrameSegment<'a, E> {
     fn off_dst(&self) -> E {
-        self.get(0, DataSegment::Offsets)
+        bias(self.get(0, DataSegment::Offsets))
     }
 
     fn off_op0(&self) -> E {
-        self.get(1, DataSegment::Offsets)
+        bias(self.get(1, DataSegment::Offsets))
     }
 
     fn off_op1(&self) -> E {
-        self.get(2, DataSegment::Offsets)
+        bias(self.get(2, DataSegment::Offsets))
     }
 }
 

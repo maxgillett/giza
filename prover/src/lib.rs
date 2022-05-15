@@ -60,8 +60,11 @@ impl Prover for ExecutionProver {
         let ap_fin = trace.main_segment().get(MEM_P_TRACE_OFFSET, last_step);
         let fin = RegisterState::new(pc_fin, ap_fin, ap_fin);
 
+        let rc_min = trace.rc_min;
+        let rc_max = trace.rc_max;
+
         let mem = trace.public_mem();
 
-        PublicInputs::new(init, fin, mem)
+        PublicInputs::new(init, fin, rc_min, rc_max, mem)
     }
 }

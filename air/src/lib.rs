@@ -1,8 +1,8 @@
 #![feature(generic_associated_types)]
 
 use giza_core::{
-    ExtensionOf, Felt, FieldElement, RegisterState, Word, MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET,
-    P_M_OFFSET,
+    range, ExtensionOf, Felt, FieldElement, RegisterState, Word, A_RC_PRIME_OFFSET,
+    MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET, P_M_OFFSET,
 };
 
 use winter_air::{
@@ -77,12 +77,12 @@ impl Air for ProcessorAir {
             TransitionConstraintDegree::new(2),
             TransitionConstraintDegree::new(2),
             // Range check constraints
-            //TransitionConstraintDegree::new(2),
-            //TransitionConstraintDegree::new(2),
-            //TransitionConstraintDegree::new(2),
-            //TransitionConstraintDegree::new(2),
-            //TransitionConstraintDegree::new(2),
-            //TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
         ];
 
         Self {
@@ -110,17 +110,39 @@ impl Air for ProcessorAir {
         ]
     }
 
+    // TODO: Abstract away specific trace layout (i.e. P_M_OFFSET + 3)
     fn get_aux_assertions<E: FieldElement + From<Self::BaseField>>(
         &self,
         aux_rand_elements: &AuxTraceRandElements<E>,
     ) -> Vec<Assertion<E>> {
-        // TODO: Modify assertions to constrain public memory
-        // TODO: Modify assertions to constrain rc_min and rc_max
-        // TODO: Abstract away specific trace layout (i.e. P_M_OFFSET + 3)
-        //let z = aux_rand_elements[0];
-        //let alpha = aux_rand_elements[1];
+        // Constrain the following:
+        // - Public memory
+        // - Minimum range check value
+        // - Maximum range check value
+
         let last_step = self.trace_length() - 1;
-        vec![Assertion::single(P_M_OFFSET + 3, last_step, E::ONE)]
+        let random_elements = aux_rand_elements.get_segment_elements(0);
+        let z = random_elements[0];
+        let alpha = random_elements[1];
+        let num = z.exp((self.pub_inputs.mem.len() as u64).into());
+        let den = self
+            .pub_inputs
+            .mem
+            .iter()
+            .enumerate()
+            .map(|(a, v)| z - (E::from(a as u64) + alpha * E::from(v.unwrap().word())))
+            .reduce(|a, b| a * b)
+            .unwrap();
+
+        vec![
+            Assertion::single(P_M_OFFSET + 3, last_step, num / den),
+            Assertion::single(A_RC_PRIME_OFFSET, 0, E::from(self.pub_inputs.rc_min)),
+            Assertion::single(
+                A_RC_PRIME_OFFSET + 2,
+                last_step,
+                E::from(self.pub_inputs.rc_max),
+            ),
+        ]
     }
 
     fn evaluate_transition<E: FieldElement + From<Felt>>(
@@ -147,7 +169,7 @@ impl Air for ProcessorAir {
         result: &mut [F],
     ) {
         result.evaluate_memory_constraints(main_frame, aux_frame, aux_rand_elements);
-        //result.evaluate_range_check_constraints(main_frame, aux_frame, aux_rand_elements);
+        result.evaluate_range_check_constraints(main_frame, aux_frame, aux_rand_elements);
     }
 
     fn context(&self) -> &AirContext<Felt> {
@@ -162,12 +184,26 @@ impl Air for ProcessorAir {
 pub struct PublicInputs {
     init: RegisterState,    // initial register state
     fin: RegisterState,     // final register state
+    rc_min: u16,            // minimum range check value (0 < rc_min < rc_max < 2^16)
+    rc_max: u16,            // maximum range check value
     mem: Vec<Option<Word>>, // public memory
 }
 
 impl PublicInputs {
-    pub fn new(init: RegisterState, fin: RegisterState, mem: Vec<Option<Word>>) -> Self {
-        Self { init, fin, mem }
+    pub fn new(
+        init: RegisterState,
+        fin: RegisterState,
+        rc_min: u16,
+        rc_max: u16,
+        mem: Vec<Option<Word>>,
+    ) -> Self {
+        Self {
+            init,
+            fin,
+            rc_min,
+            rc_max,
+            mem,
+        }
     }
 }
 
