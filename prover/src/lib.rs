@@ -1,5 +1,5 @@
 use air::{ProcessorAir, PublicInputs};
-use giza_core::{Felt, MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET};
+use giza_core::{Felt, RegisterState, MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET};
 use prover::{Prover, Trace};
 use runner::{ExecutionError, ExecutionTrace, Program};
 
@@ -52,14 +52,16 @@ impl Prover for ExecutionProver {
 
     fn get_pub_inputs(&self, trace: &ExecutionTrace) -> PublicInputs {
         let last_step = trace.length() - 1;
-        let pc = vec![
-            trace.main_segment().get(MEM_A_TRACE_OFFSET, 0),
-            trace.main_segment().get(MEM_A_TRACE_OFFSET, last_step),
-        ];
-        let ap = vec![
-            trace.main_segment().get(MEM_P_TRACE_OFFSET, 0),
-            trace.main_segment().get(MEM_P_TRACE_OFFSET, last_step),
-        ];
-        PublicInputs::new(pc, ap)
+        let pc_init = trace.main_segment().get(MEM_A_TRACE_OFFSET, 0);
+        let ap_init = trace.main_segment().get(MEM_P_TRACE_OFFSET, 0);
+        let init = RegisterState::new(pc_init, ap_init, ap_init);
+
+        let pc_fin = trace.main_segment().get(MEM_A_TRACE_OFFSET, last_step);
+        let ap_fin = trace.main_segment().get(MEM_P_TRACE_OFFSET, last_step);
+        let fin = RegisterState::new(pc_fin, ap_fin, ap_fin);
+
+        let mem = trace.public_mem();
+
+        PublicInputs::new(init, fin, mem)
     }
 }

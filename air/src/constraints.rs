@@ -167,7 +167,7 @@ where
             let a_m: F = curr.a_m(i).into();
             let v_m: F = curr.v_m(i).into();
             self[i + 8] = (z - (aux.a_m_prime(i) + alpha * aux.v_m_prime(i))) * aux.p_m(i + 1)
-                - (z - (a_m + alpha * v_m)) * aux.p_m(i)
+                - (z - (a_m + alpha * v_m)) * aux.p_m(i);
         }
     }
 

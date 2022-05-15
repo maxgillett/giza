@@ -4,9 +4,8 @@ use std::convert::TryInto;
 use std::fmt::{Display, Formatter, Result};
 use std::ops::{Index, IndexMut};
 
-//use super::MemoryTrace;
 use core::iter::repeat;
-use giza_core::{Felt, FieldHelpers, Word}; //, MEM_TRACE_WIDTH};
+use giza_core::{Felt, FieldHelpers, Word};
 
 /// This data structure stores the memory of the program
 #[derive(Clone)]
@@ -20,8 +19,6 @@ pub struct Memory {
 impl Index<Felt> for Memory {
     type Output = Option<Word>;
     fn index(&self, idx: Felt) -> &Self::Output {
-        // Safely convert idx from F to usize (since this is a memory address
-        // idx should not be too big, this should be safe)
         let addr: u64 = idx.to_u64();
         &self.data[addr as usize]
     }
@@ -30,7 +27,7 @@ impl Index<Felt> for Memory {
 impl IndexMut<Felt> for Memory {
     fn index_mut(&mut self, idx: Felt) -> &mut Self::Output {
         let addr: u64 = idx.to_u64();
-        self.resize(addr); // Resize if necessary
+        self.resize(addr);
         &mut self.data[addr as usize]
     }
 }
@@ -38,8 +35,8 @@ impl IndexMut<Felt> for Memory {
 impl Display for Memory {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         for i in 1..self.size() {
-            // Visualize content of memory excluding the 0th dummy entry
-            if let Some(elem) = self[Felt::from(i)] {
+            // Visualize content of memory
+            if let Some(elem) = self[Felt::from(i as u64)] {
                 if writeln!(f, "{0:>6}: 0x{1:}", i, elem.word().to_hex_le()).is_err() {
                     println!("Error while writing")
                 }
@@ -55,11 +52,10 @@ impl Memory {
     /// Create a new memory structure from a vector of field elements
     pub fn new(input: Vec<Felt>) -> Memory {
         // Initialized with the public memory (compiled instructions only)
-        // starts intentionally with a zero word for ease of testing
-        let mut aux = vec![Felt::new(0)];
+        let mut aux = vec![Felt::from(0u8)];
         aux.extend(input);
         Memory {
-            codelen: aux.len() - 1,
+            codelen: aux.len(),
             data: aux.into_iter().map(|i| Some(Word::new(i))).collect(),
         }
     }
@@ -69,16 +65,13 @@ impl Memory {
         self.codelen
     }
 
-    /// Get size of the full memory including dummy 0th entry
+    /// Get size of the full memory
     pub fn size(&self) -> u64 {
         self.data.len() as u64
     }
 
     /// Resizes memory with enough additional None slots if necessary before writing or reading
     fn resize(&mut self, addr: u64) {
-        // if you want to access an index of the memory but its size is less or equal than this
-        // you will need to extend the vector with enough spaces (taking into account that
-        // vectors start by index 0, the 0 address is dummy, and size starts in 1)
         if let Some(additional) = addr.checked_sub(self.size() - 1) {
             self.data.extend(repeat(None).take(additional as usize));
         }
@@ -87,6 +80,12 @@ impl Memory {
     /// Write u64 element in memory address
     pub fn write(&mut self, addr: Felt, elem: Felt) {
         self[addr] = Some(Word::new(elem));
+    }
+
+    /// Write u64 element in memory address
+    pub fn write_pub(&mut self, addr: Felt, elem: Felt) {
+        self.write(addr, elem);
+        self.codelen += 1;
     }
 
     /// Read element in memory address
@@ -117,9 +116,9 @@ mod tests {
             F::from(0x208b7fff7fff7ffeu64),
         ];
         let mut memory = Memory::new(instrs);
-        memory.write(F::from(memory.size()), F::from(7u64));
-        memory.write(F::from(memory.size()), F::from(7u64));
-        memory.write(F::from(memory.size()), F::from(10u64));
+        memory.write(F::from(memory.size() as u64), F::from(7u64));
+        memory.write(F::from(memory.size() as u64), F::from(7u64));
+        memory.write(F::from(memory.size() as u64), F::from(10u64));
         println!("{}", memory);
         // Check content of an address
         assert_eq!(

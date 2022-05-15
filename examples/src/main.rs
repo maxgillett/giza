@@ -1,5 +1,5 @@
 use air::{ProcessorAir, ProofOptions, PublicInputs};
-use giza_core::Felt;
+use giza_core::{Felt, RegisterState};
 use runner::hints::{Hint, HintManager};
 use runner::{Memory, Program};
 
@@ -42,15 +42,15 @@ fn main() {
     ];
 
     let mut mem = Memory::new(instrs);
-    mem.write(Felt::from(21u32), Felt::from(41u32)); // beginning of output
-    mem.write(Felt::from(22u32), Felt::from(44u32)); // end of output
-    mem.write(Felt::from(23u32), Felt::from(44u32)); // end of program
+    mem.write_pub(Felt::from(21u32), Felt::from(41u32)); // beginning of output
+    mem.write_pub(Felt::from(22u32), Felt::from(44u32)); // end of output
+    mem.write_pub(Felt::from(23u32), Felt::from(44u32)); // end of program
 
-    let mut hints = HintManager::default();
+    //let mut hints = HintManager::default();
     //hints.push_hint(7, Hint::new(String::from("memory[30]=5"), vec![], None));
     //hints.push_hint(7, Hint::new(String::from("memory[31]=5"), vec![], None));
 
-    let mut program = Program::new(&mut mem, 5, 24, Some(hints));
+    let mut program = Program::new(&mut mem, 5, 24, None);
 
     // execute the program and generate the proof of execution
     let proof_options = ProofOptions::with_96_bit_security();
@@ -59,9 +59,9 @@ fn main() {
     println!("Proof size: {:.1} KB", proof_bytes.len() as f64 / 1024f64);
 
     // verify correct program execution
-    let pc = vec![Felt::new(5), Felt::new(20)];
-    let ap = vec![Felt::new(24), Felt::new(41)];
-    let pub_inputs = PublicInputs::new(pc, ap);
+    let init = RegisterState::new(5u64, 24u64, 24u64);
+    let fin = RegisterState::new(20u64, 41u64, 41u64);
+    let pub_inputs = PublicInputs::new(init, fin, mem.data);
     match winterfell::verify::<ProcessorAir>(proof, pub_inputs) {
         Ok(_) => println!("Execution verified"),
         Err(err) => println!("Failed to verify execution: {}", err),

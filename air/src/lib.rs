@@ -1,8 +1,10 @@
 #![feature(generic_associated_types)]
 
 use giza_core::{
-    ExtensionOf, Felt, FieldElement, MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET, P_M_OFFSET,
+    ExtensionOf, Felt, FieldElement, RegisterState, Word, MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET,
+    P_M_OFFSET,
 };
+
 use winter_air::{
     Air, AirContext, Assertion, AuxTraceRandElements, ProofOptions as WinterProofOptions,
     TraceInfo, TransitionConstraintDegree,
@@ -29,10 +31,7 @@ pub use frame::{AuxEvaluationFrame, MainEvaluationFrame};
 /// TODO: add docs
 pub struct ProcessorAir {
     context: AirContext<Felt>,
-    pc_init: Felt,
-    ap_init: Felt,
-    pc_fin: Felt,
-    ap_fin: Felt,
+    pub_inputs: PublicInputs,
 }
 
 impl Air for ProcessorAir {
@@ -57,7 +56,8 @@ impl Air for ProcessorAir {
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(3)); // TODO: Add another trace column for MUL to reduce this to 2
+        // TODO: Add another trace column for MUL to reduce this degree to 2
+        main_degrees.push(TransitionConstraintDegree::new(3));
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
@@ -94,10 +94,7 @@ impl Air for ProcessorAir {
                 1,
                 options,
             ),
-            pc_init: pub_inputs.pc_init,
-            ap_init: pub_inputs.ap_init,
-            pc_fin: pub_inputs.pc_fin,
-            ap_fin: pub_inputs.ap_fin,
+            pub_inputs,
         }
     }
 
@@ -105,11 +102,11 @@ impl Air for ProcessorAir {
         let last_step = self.trace_length() - 1;
         vec![
             // pc assertions
-            Assertion::single(MEM_A_TRACE_OFFSET, 0, self.pc_init),
-            Assertion::single(MEM_A_TRACE_OFFSET, last_step, self.pc_fin),
+            Assertion::single(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.init.pc),
+            Assertion::single(MEM_A_TRACE_OFFSET, last_step, self.pub_inputs.fin.pc),
             // ap assertions
-            Assertion::single(MEM_P_TRACE_OFFSET, 0, self.ap_init),
-            Assertion::single(MEM_P_TRACE_OFFSET, last_step, self.ap_fin),
+            Assertion::single(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.init.ap),
+            Assertion::single(MEM_P_TRACE_OFFSET, last_step, self.pub_inputs.fin.ap),
         ]
     }
 
@@ -120,6 +117,8 @@ impl Air for ProcessorAir {
         // TODO: Modify assertions to constrain public memory
         // TODO: Modify assertions to constrain rc_min and rc_max
         // TODO: Abstract away specific trace layout (i.e. P_M_OFFSET + 3)
+        //let z = aux_rand_elements[0];
+        //let alpha = aux_rand_elements[1];
         let last_step = self.trace_length() - 1;
         vec![Assertion::single(P_M_OFFSET + 3, last_step, E::ONE)]
     }
@@ -161,28 +160,22 @@ impl Air for ProcessorAir {
 
 #[derive(Debug)]
 pub struct PublicInputs {
-    pc_init: Felt,
-    ap_init: Felt,
-    pc_fin: Felt,
-    ap_fin: Felt,
+    init: RegisterState,    // initial register state
+    fin: RegisterState,     // final register state
+    mem: Vec<Option<Word>>, // public memory
 }
 
 impl PublicInputs {
-    pub fn new(pc: Vec<Felt>, ap: Vec<Felt>) -> Self {
-        Self {
-            pc_init: pc[0],
-            ap_init: ap[0],
-            pc_fin: pc[1],
-            ap_fin: ap[1],
-        }
+    pub fn new(init: RegisterState, fin: RegisterState, mem: Vec<Option<Word>>) -> Self {
+        Self { init, fin, mem }
     }
 }
 
 impl Serializable for PublicInputs {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
-        target.write(self.ap_init);
-        target.write(self.ap_init);
-        target.write(self.pc_fin);
-        target.write(self.ap_fin);
+        target.write(self.init.pc);
+        target.write(self.init.ap);
+        target.write(self.fin.pc);
+        target.write(self.fin.ap);
     }
 }

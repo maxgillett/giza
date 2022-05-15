@@ -7,10 +7,10 @@ pub use word::{
     FieldHelpers, FlagDecomposition, FlagGroupDecomposition, OffsetDecomposition, Word,
 };
 
-pub mod flags;
-
 pub mod inputs;
 pub use inputs::ProgramInputs;
+
+pub mod flags;
 
 // MAIN TRACE LAYOUT
 // -----------------------------------------------------------------------------------------
@@ -87,5 +87,70 @@ pub const fn range(start: usize, len: usize) -> Range<usize> {
     Range {
         start,
         end: start + len,
+    }
+}
+
+/// A structure to store program counter, allocation pointer and frame pointer
+#[derive(Clone, Copy, Debug)]
+pub struct RegisterState {
+    /// Program counter: points to address in memory
+    pub pc: Felt,
+    /// Allocation pointer: points to first free space in memory
+    pub ap: Felt,
+    /// Frame pointer: points to the beginning of the stack in memory (for arguments)
+    pub fp: Felt,
+}
+
+pub struct InstructionState {
+    /// Instruction
+    pub inst: Word,
+    pub inst_size: Felt,
+    /// Addresses
+    pub dst_addr: Felt,
+    pub op0_addr: Felt,
+    pub op1_addr: Felt,
+    /// Values
+    pub dst: Option<Felt>,
+    pub op0: Option<Felt>,
+    pub op1: Option<Felt>,
+    /// Result
+    pub res: Option<Felt>,
+}
+
+impl RegisterState {
+    /// Creates a new triple of pointers
+    pub fn new<T: Into<Felt>>(pc: T, ap: T, fp: T) -> Self {
+        RegisterState {
+            pc: pc.into(),
+            ap: ap.into(),
+            fp: fp.into(),
+        }
+    }
+}
+
+impl InstructionState {
+    /// Creates a new set instruction word and operand state
+    pub fn new(
+        inst: Word,
+        inst_size: Felt,
+        dst: Option<Felt>,
+        op0: Option<Felt>,
+        op1: Option<Felt>,
+        res: Option<Felt>,
+        dst_addr: Felt,
+        op0_addr: Felt,
+        op1_addr: Felt,
+    ) -> Self {
+        InstructionState {
+            inst,
+            inst_size,
+            dst,
+            op0,
+            op1,
+            res,
+            dst_addr,
+            op0_addr,
+            op1_addr,
+        }
     }
 }

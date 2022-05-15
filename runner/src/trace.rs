@@ -1,7 +1,7 @@
 use crate::memory::Memory;
 use crate::runner::State;
 use giza_core::{
-    Felt, FieldElement, StarkField, MEM_A_TRACE_RANGE, MEM_A_TRACE_WIDTH, MEM_V_TRACE_RANGE,
+    Felt, FieldElement, StarkField, Word, MEM_A_TRACE_RANGE, MEM_A_TRACE_WIDTH, MEM_V_TRACE_RANGE,
     OFF_X_TRACE_RANGE, TRACE_WIDTH,
 };
 
@@ -11,7 +11,7 @@ pub struct ExecutionTrace {
     layout: TraceLayout,
     meta: Vec<u8>,
     trace: Matrix<Felt>,
-    public_mem: Memory,
+    pub memory: Memory,
 }
 
 /// A virtual column is composed of one or more subcolumns.
@@ -94,7 +94,12 @@ impl<'a, E: FieldElement> Layouter<'a, E> {
 
     /// Resize columns to next power of two
     fn resize_all(&mut self) {
-        let trace_len_pow2 = self.columns[0].len().next_power_of_two();
+        let trace_len_pow2 = self
+            .columns
+            .iter()
+            .map(|x| x.len().next_power_of_two())
+            .max()
+            .unwrap();
         for column in self.columns.iter_mut() {
             column.truncate(self.trace_len);
             let last_value = column.last().copied().unwrap();
@@ -105,7 +110,7 @@ impl<'a, E: FieldElement> Layouter<'a, E> {
 
 impl ExecutionTrace {
     /// Builds an execution trace
-    pub(super) fn new(num_steps: usize, state: &mut State, public_mem: &Memory) -> Self {
+    pub(super) fn new(num_steps: usize, state: &mut State, memory: &Memory) -> Self {
         // TODO: Don't hardcode index values here
         let mut t0 = vec![];
         let mut t1 = vec![];
@@ -115,7 +120,7 @@ impl ExecutionTrace {
         }
 
         // Append dummy (0,0) public memory values to mem_a and mem_v
-        let zero_column = vec![Felt::ZERO; public_mem.size() as usize - 1];
+        let zero_column = vec![Felt::ZERO; memory.get_codelen() as usize - 1];
         for (n, col) in VirtualColumn::new(&[zero_column])
             .to_columns(&[MEM_A_TRACE_WIDTH])
             .iter()
@@ -147,8 +152,13 @@ impl ExecutionTrace {
             ),
             meta: Vec::new(),
             trace: Matrix::new(columns),
-            public_mem: public_mem.clone(),
+            memory: memory.clone(),
         }
+    }
+
+    /// Return the public memory
+    pub fn public_mem(&self) -> Vec<Option<Word>> {
+        self.memory.data[..self.memory.get_codelen()].to_vec()
     }
 }
 
@@ -209,18 +219,18 @@ where
     // Replace dummy public memory accesses
     let mut a_replaced = a.clone();
     let mut v_replaced = v.clone();
-    let len = a_replaced.len() - trace.public_mem.size() as usize - 1;
-    a_replaced.truncate(len);
-    v_replaced.truncate(len);
+    let pub_mem_len = trace.memory.get_codelen();
+    let trace_len = a_replaced.len() - pub_mem_len;
+    a_replaced.truncate(trace_len);
+    v_replaced.truncate(trace_len);
     a_replaced.extend(
-        (0..trace.public_mem.size() - 1)
+        (0..pub_mem_len as u64)
             .map(|x| Felt::from(x))
             .collect::<Vec<Felt>>(),
     );
     v_replaced.extend(
         trace
-            .public_mem
-            .data
+            .public_mem()
             .iter()
             .map(|x| x.unwrap().word().into())
             .collect::<Vec<Felt>>(),
