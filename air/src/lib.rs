@@ -91,7 +91,7 @@ impl Air for ProcessorAir {
                 main_degrees,
                 aux_degrees,
                 4,
-                1,
+                3,
                 options,
             ),
             pub_inputs,
@@ -136,6 +136,7 @@ impl Air for ProcessorAir {
 
         vec![
             Assertion::single(P_M_OFFSET + 3, last_step, num / den),
+            //Assertion::single(P_M_OFFSET + 3, last_step, E::ONE),
             Assertion::single(A_RC_PRIME_OFFSET, 0, E::from(self.pub_inputs.rc_min)),
             Assertion::single(
                 A_RC_PRIME_OFFSET + 2,

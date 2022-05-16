@@ -86,7 +86,7 @@ pub const P_M_WIDTH: usize = 4;
 pub const A_RC_PRIME_OFFSET: usize = 12;
 pub const A_RC_PRIME_WIDTH: usize = 3;
 
-pub const P_RC_OFFSET: usize = 14;
+pub const P_RC_OFFSET: usize = 15;
 pub const P_RC_WIDTH: usize = 3;
 
 /// Returns a [Range] initialized with the specified `start` and with `end` set to `start` + `len`.

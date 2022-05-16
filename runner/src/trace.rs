@@ -2,7 +2,7 @@ use crate::memory::Memory;
 use crate::runner::State;
 use giza_core::{
     Felt, FieldElement, StarkField, Word, MEM_A_TRACE_RANGE, MEM_A_TRACE_WIDTH, MEM_V_TRACE_RANGE,
-    OFF_X_TRACE_RANGE, TRACE_WIDTH,
+    OFF_X_TRACE_RANGE, OFF_X_TRACE_WIDTH, TRACE_WIDTH,
 };
 use std::collections::HashSet;
 
@@ -56,16 +56,11 @@ impl<'a, E: FieldElement> VirtualColumn<'a, E> {
 struct Layouter<'a, E: FieldElement> {
     columns: &'a mut Vec<Vec<E>>,
     frame_len: usize,
-    trace_len: usize,
 }
 
 impl<'a, E: FieldElement> Layouter<'a, E> {
-    fn new(columns: &'a mut Vec<Vec<E>>, frame_len: usize, trace_len: usize) -> Self {
-        Self {
-            columns,
-            frame_len,
-            trace_len,
-        }
+    fn new(columns: &'a mut Vec<Vec<E>>, frame_len: usize) -> Self {
+        Self { columns, frame_len }
     }
 
     /// Add one or more columns to the trace. The chunk size determines the number
@@ -74,7 +69,7 @@ impl<'a, E: FieldElement> Layouter<'a, E> {
     /// Panics if chunk_size is greater than frame_len
     fn add_columns(&mut self, subcols: &[Vec<E>], chunk_size: Option<usize>) {
         for subcol in subcols.iter() {
-            let mut col = E::zeroed_vector(self.frame_len * self.trace_len);
+            let mut col = E::zeroed_vector(subcol.len());
             for (col_chunk, subcol_chunk) in col
                 .chunks_mut(self.frame_len)
                 .zip(subcol.chunks(chunk_size.unwrap_or(1)))
@@ -88,6 +83,7 @@ impl<'a, E: FieldElement> Layouter<'a, E> {
     }
 
     /// Add one or more virtual columns to the trace
+    #[allow(dead_code)]
     fn add_virtual_columns(&mut self, vcols: &[VirtualColumn<E>]) {
         for vcol in vcols.iter() {
             let subcol = vcol.to_column();
@@ -104,7 +100,6 @@ impl<'a, E: FieldElement> Layouter<'a, E> {
             .max()
             .unwrap();
         for column in self.columns.iter_mut() {
-            column.truncate(self.trace_len);
             let last_value = column.last().copied().unwrap();
             column.resize(trace_len_pow2, last_value);
         }
@@ -123,7 +118,7 @@ impl ExecutionTrace {
         }
 
         // Append dummy (0,0) public memory values to mem_a and mem_v
-        let zero_column = vec![Felt::ZERO; memory.get_codelen() as usize - 1];
+        let zero_column = vec![Felt::ZERO; memory.get_codelen()];
         for (n, col) in VirtualColumn::new(&[zero_column])
             .to_columns(&[MEM_A_TRACE_WIDTH])
             .iter()
@@ -152,7 +147,7 @@ impl ExecutionTrace {
 
         // Layout the trace
         let mut columns: Vec<Vec<Felt>> = Vec::with_capacity(TRACE_WIDTH);
-        let mut layouter = Layouter::new(&mut columns, 1, num_steps);
+        let mut layouter = Layouter::new(&mut columns, 1);
         layouter.add_columns(&state.flags, None);
         layouter.add_columns(&state.res, None);
         layouter.add_columns(&state.mem_p, None);
@@ -160,6 +155,10 @@ impl ExecutionTrace {
         layouter.add_columns(&state.mem_v, None);
         layouter.add_columns(&offsets, None);
         layouter.add_columns(&[t0, t1], None);
+
+        // TODO: When resizing mem_a and mem_v, extend execution accesses to the required
+        // length (and not the appended public memory accesses). Otherwise the final value
+        // cumulative product constraint may not match
 
         layouter.resize_all();
 
@@ -252,18 +251,20 @@ where
     indices.sort_by_key(|&i| a_replaced[i].as_int());
     let mut a_prime = vec![E::ZERO; indices.len()];
     let mut v_prime = vec![E::ZERO; indices.len()];
-    for i in indices.iter().copied() {
-        a_prime[i] = a_replaced[i].into();
-        v_prime[i] = v_replaced[i].into();
+    for (i, j) in indices.iter().copied().enumerate() {
+        a_prime[i] = a_replaced[j].into();
+        v_prime[i] = v_replaced[j].into();
     }
 
     // Compute virtual column of permutation products
     let mut p = vec![E::ONE; trace.length() * MEM_A_TRACE_WIDTH];
-    let p_len = p.len();
-    for i in 0..p_len - 1 {
+    let a_0: E = a[0].into();
+    let v_0: E = v[0].into();
+    p[0] = (z - (a_0 + alpha * v_0).into()) / (z - (a_prime[0] + alpha * v_prime[0]).into());
+    for i in 1..p.len() {
         let a_i: E = a[i].into();
         let v_i: E = v[i].into();
-        p[i + 1] = (z - (a_i + alpha * v_i).into()) * p[i]
+        p[i] = (z - (a_i + alpha * v_i).into()) * p[i - 1]
             / (z - (a_prime[i] + alpha * v_prime[i]).into());
     }
 
@@ -295,10 +296,12 @@ where
     let a_prime = indices.iter().map(|x| a[*x].into()).collect::<Vec<E>>();
 
     // Compute virtual column of permutation products
-    let mut p = vec![E::ONE; trace.length()];
-    for i in 0..p.len() - 2 {
+    let mut p = vec![E::ONE; trace.length() * OFF_X_TRACE_WIDTH];
+    let a_0: E = a[0].into();
+    p[0] = (z - a_0) / (z - a_prime[0]);
+    for i in 1..p.len() {
         let a_i: E = a[i].into();
-        p[i + 1] = (z - a_i) * p[i] / (z - a_i);
+        p[i] = (z - a_i) * p[i - 1] / (z - a_prime[i]);
     }
 
     // Split virtual columns into separate auxiliary columns

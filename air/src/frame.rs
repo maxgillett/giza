@@ -303,7 +303,7 @@ impl<'a, E: FieldElement> AuxFrameSegment<'a, E> {
 
     /// Permutation range check
     pub fn a_rc_prime(&self, idx: usize) -> E {
-        self.get_virtual(idx, A_RC_PRIME_OFFSET, A_RC_PRIME_OFFSET)
+        self.get_virtual(idx, A_RC_PRIME_OFFSET, A_RC_PRIME_WIDTH)
     }
     pub fn p_rc(&self, idx: usize) -> E {
         self.get_virtual(idx, P_RC_OFFSET, P_RC_WIDTH)

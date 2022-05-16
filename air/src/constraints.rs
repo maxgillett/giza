@@ -164,9 +164,10 @@ where
                 * (aux.a_m_prime(i + 1) - aux.a_m_prime(i) - F::ONE);
 
             // Cumulative product step
-            let a_m: F = curr.a_m(i).into();
-            let v_m: F = curr.v_m(i).into();
-            self[i + 8] = (z - (aux.a_m_prime(i) + alpha * aux.v_m_prime(i))) * aux.p_m(i + 1)
+            let a_m: F = curr.a_m(i + 1).into();
+            let v_m: F = curr.v_m(i + 1).into();
+            self[i + 8] = (z - (aux.a_m_prime(i + 1) + alpha * aux.v_m_prime(i + 1)))
+                * aux.p_m(i + 1)
                 - (z - (a_m + alpha * v_m)) * aux.p_m(i);
         }
     }
@@ -188,8 +189,8 @@ where
                 * (aux.a_rc_prime(i + 1) - aux.a_rc_prime(i) - F::ONE);
 
             // Cumulative product step
-            self[i + 15] =
-                (z - aux.a_rc_prime(i)) * aux.p_rc(i + 1) - (z - curr.a_rc(i).into()) * aux.p_rc(i)
+            self[i + 15] = (z - aux.a_rc_prime(i + 1)) * aux.p_rc(i + 1)
+                - (z - curr.a_rc(i + 1).into()) * aux.p_rc(i)
         }
     }
 }
