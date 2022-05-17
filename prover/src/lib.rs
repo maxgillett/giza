@@ -65,6 +65,6 @@ impl Prover for ExecutionProver {
 
         let mem = trace.public_mem();
 
-        PublicInputs::new(init, fin, rc_min, rc_max, mem)
+        PublicInputs::new(init, fin, rc_min, rc_max, mem, trace.num_steps)
     }
 }

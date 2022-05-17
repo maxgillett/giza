@@ -4,7 +4,6 @@ use giza_core::{
     Felt, FieldElement, StarkField, Word, MEM_A_TRACE_RANGE, MEM_A_TRACE_WIDTH, MEM_V_TRACE_RANGE,
     OFF_X_TRACE_RANGE, OFF_X_TRACE_WIDTH, TRACE_WIDTH,
 };
-use std::collections::HashSet;
 
 use winterfell::{Matrix, Trace, TraceLayout};
 
@@ -15,6 +14,7 @@ pub struct ExecutionTrace {
     pub memory: Memory,
     pub rc_min: u16,
     pub rc_max: u16,
+    pub num_steps: usize,
 }
 
 /// A virtual column is composed of one or more subcolumns.
@@ -112,9 +112,11 @@ impl ExecutionTrace {
         // TODO: Don't hardcode index values here
         let mut t0 = vec![];
         let mut t1 = vec![];
+        let mut mul = vec![];
         for step in 0..num_steps {
             t0.push(state.flags[9][step] * state.mem_v[1][step]); // f_pc_jnz * dst
             t1.push(t0[step] * state.res[0][step]); // t_0 * res
+            mul.push(state.mem_v[2][step] * state.mem_v[3][step]); // op0 * op1
         }
 
         // Append dummy (0,0) public memory values to mem_a and mem_v
@@ -154,16 +156,11 @@ impl ExecutionTrace {
         layouter.add_columns(&state.mem_a, None);
         layouter.add_columns(&state.mem_v, None);
         layouter.add_columns(&offsets, None);
-        layouter.add_columns(&[t0, t1], None);
-
-        // TODO: When resizing mem_a and mem_v, extend execution accesses to the required
-        // length (and not the appended public memory accesses). Otherwise the final value
-        // cumulative product constraint may not match
+        layouter.add_columns(&[t0, t1, mul], None);
 
         layouter.resize_all();
 
         Self {
-            // TODO: Enable support in Winterfell for additional aux segments
             layout: TraceLayout::new(
                 TRACE_WIDTH,
                 &[12, 6], // aux_segment widths
@@ -174,6 +171,7 @@ impl ExecutionTrace {
             memory: memory.clone(),
             rc_min,
             rc_max,
+            num_steps,
         }
     }
 
@@ -257,7 +255,7 @@ where
     }
 
     // Compute virtual column of permutation products
-    let mut p = vec![E::ONE; trace.length() * MEM_A_TRACE_WIDTH];
+    let mut p = vec![E::ZERO; trace.length() * MEM_A_TRACE_WIDTH];
     let a_0: E = a[0].into();
     let v_0: E = v[0].into();
     p[0] = (z - (a_0 + alpha * v_0).into()) / (z - (a_prime[0] + alpha * v_prime[0]).into());
@@ -296,7 +294,7 @@ where
     let a_prime = indices.iter().map(|x| a[*x].into()).collect::<Vec<E>>();
 
     // Compute virtual column of permutation products
-    let mut p = vec![E::ONE; trace.length() * OFF_X_TRACE_WIDTH];
+    let mut p = vec![E::ZERO; trace.length() * OFF_X_TRACE_WIDTH];
     let a_0: E = a[0].into();
     p[0] = (z - a_0) / (z - a_prime[0]);
     for i in 1..p.len() {

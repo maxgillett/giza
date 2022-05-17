@@ -1,6 +1,6 @@
 use air::{ProcessorAir, ProofOptions, PublicInputs};
 use giza_core::{Felt, RegisterState};
-use runner::hints::{Hint, HintManager};
+//use runner::hints::{Hint, HintManager};
 use runner::{Memory, Program};
 
 fn main() {
@@ -51,6 +51,7 @@ fn main() {
     //hints.push_hint(7, Hint::new(String::from("memory[31]=5"), vec![], None));
 
     let mut program = Program::new(&mut mem, 5, 24, None);
+    let num_steps = program.get_steps();
 
     // execute the program and generate the proof of execution
     let proof_options = ProofOptions::with_96_bit_security();
@@ -63,7 +64,7 @@ fn main() {
     let fin = RegisterState::new(20u64, 41u64, 41u64);
     let rc_min = 0;
     let rc_max = 200;
-    let pub_inputs = PublicInputs::new(init, fin, rc_min, rc_max, mem.data);
+    let pub_inputs = PublicInputs::new(init, fin, rc_min, rc_max, mem.data, num_steps);
     match winterfell::verify::<ProcessorAir>(proof, pub_inputs) {
         Ok(_) => println!("Execution verified"),
         Err(err) => println!("Failed to verify execution: {}", err),

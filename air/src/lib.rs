@@ -1,8 +1,8 @@
 #![feature(generic_associated_types)]
 
 use giza_core::{
-    range, ExtensionOf, Felt, FieldElement, RegisterState, Word, A_RC_PRIME_OFFSET,
-    MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET, P_M_OFFSET,
+    ExtensionOf, Felt, FieldElement, RegisterState, Word, A_RC_PRIME_FIRST, A_RC_PRIME_LAST,
+    MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET, P_M_LAST,
 };
 
 use winter_air::{
@@ -28,7 +28,6 @@ pub use frame::{AuxEvaluationFrame, MainEvaluationFrame};
 // PROCESSOR AIR
 // ================================================================================================
 
-/// TODO: add docs
 pub struct ProcessorAir {
     context: AirContext<Felt>,
     pub_inputs: PublicInputs,
@@ -56,8 +55,8 @@ impl Air for ProcessorAir {
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
-        // TODO: Add another trace column for MUL to reduce this degree to 2
-        main_degrees.push(TransitionConstraintDegree::new(3));
+        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
@@ -85,15 +84,19 @@ impl Air for ProcessorAir {
             TransitionConstraintDegree::new(2),
         ];
 
+        let mut transition_exemptions = vec![];
+        transition_exemptions.extend(vec![
+            trace_info.length() - pub_inputs.num_steps + 1;
+            main_degrees.len()
+        ]);
+        transition_exemptions.extend(vec![trace_info.length() - 1; aux_degrees.len()]);
+
+        let mut context =
+            AirContext::new_multi_segment(trace_info, main_degrees, aux_degrees, 4, 3, options);
+        context.set_transition_exemptions(transition_exemptions);
+
         Self {
-            context: AirContext::new_multi_segment(
-                trace_info,
-                main_degrees,
-                aux_degrees,
-                4,
-                3,
-                options,
-            ),
+            context,
             pub_inputs,
         }
     }
@@ -101,25 +104,19 @@ impl Air for ProcessorAir {
     fn get_assertions(&self) -> Vec<Assertion<Felt>> {
         let last_step = self.trace_length() - 1;
         vec![
-            // pc assertions
+            // Initial and final 'pc' register
             Assertion::single(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.init.pc),
             Assertion::single(MEM_A_TRACE_OFFSET, last_step, self.pub_inputs.fin.pc),
-            // ap assertions
+            // Initial and final 'ap' register
             Assertion::single(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.init.ap),
             Assertion::single(MEM_P_TRACE_OFFSET, last_step, self.pub_inputs.fin.ap),
         ]
     }
 
-    // TODO: Abstract away specific trace layout (i.e. P_M_OFFSET + 3)
     fn get_aux_assertions<E: FieldElement + From<Self::BaseField>>(
         &self,
         aux_rand_elements: &AuxTraceRandElements<E>,
     ) -> Vec<Assertion<E>> {
-        // Constrain the following:
-        // - Public memory
-        // - Minimum range check value
-        // - Maximum range check value
-
         let last_step = self.trace_length() - 1;
         let random_elements = aux_rand_elements.get_segment_elements(0);
         let z = random_elements[0];
@@ -135,14 +132,12 @@ impl Air for ProcessorAir {
             .unwrap();
 
         vec![
-            Assertion::single(P_M_OFFSET + 3, last_step, num / den),
-            //Assertion::single(P_M_OFFSET + 3, last_step, E::ONE),
-            Assertion::single(A_RC_PRIME_OFFSET, 0, E::from(self.pub_inputs.rc_min)),
-            Assertion::single(
-                A_RC_PRIME_OFFSET + 2,
-                last_step,
-                E::from(self.pub_inputs.rc_max),
-            ),
+            // Public memory
+            Assertion::single(P_M_LAST, last_step, num / den),
+            // Minimum range check value
+            Assertion::single(A_RC_PRIME_FIRST, 0, E::from(self.pub_inputs.rc_min)),
+            // Maximum range check value
+            Assertion::single(A_RC_PRIME_LAST, last_step, E::from(self.pub_inputs.rc_max)),
         ]
     }
 
@@ -188,6 +183,7 @@ pub struct PublicInputs {
     rc_min: u16,            // minimum range check value (0 < rc_min < rc_max < 2^16)
     rc_max: u16,            // maximum range check value
     mem: Vec<Option<Word>>, // public memory
+    num_steps: usize,       // number of execution steps
 }
 
 impl PublicInputs {
@@ -197,6 +193,7 @@ impl PublicInputs {
         rc_min: u16,
         rc_max: u16,
         mem: Vec<Option<Word>>,
+        num_steps: usize,
     ) -> Self {
         Self {
             init,
@@ -204,6 +201,7 @@ impl PublicInputs {
             rc_min,
             rc_max,
             mem,
+            num_steps,
         }
     }
 }

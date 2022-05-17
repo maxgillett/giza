@@ -415,7 +415,7 @@ impl State {
 /// Stores all information needed to run a program
 pub struct Program<'a> {
     /// total number of steps
-    steps: Felt,
+    steps: usize,
     /// full execution memory
     mem: &'a mut Memory,
     /// initial register state
@@ -430,7 +430,7 @@ impl<'a> Program<'a> {
     /// Creates an execution from the public information (memory and initial pointers)
     pub fn new(mem: &mut Memory, pc: u64, ap: u64, hints: Option<HintManager>) -> Program {
         Program {
-            steps: Felt::new(0),
+            steps: 0,
             mem,
             init: RegisterState::new(Felt::from(pc), Felt::from(ap), Felt::from(ap)),
             fin: RegisterState::new(Felt::new(0), Felt::new(0), Felt::new(0)),
@@ -439,7 +439,7 @@ impl<'a> Program<'a> {
     }
 
     /// Outputs the total number of steps of the execution carried out by the runner
-    pub fn get_steps(&self) -> Felt {
+    pub fn get_steps(&self) -> usize {
         self.steps
     }
 
@@ -481,7 +481,7 @@ impl<'a> Program<'a> {
             }
         }
         self.fin = curr;
-        self.steps = Felt::from(n as u64);
+        self.steps = n;
 
         Ok(ExecutionTrace::new(n, &mut state, &self.mem))
     }

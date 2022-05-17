@@ -1,4 +1,4 @@
-use core::ops::Range;
+pub use core::ops::Range;
 
 pub use math::{fields::f128::BaseElement as Felt, ExtensionOf, FieldElement, StarkField};
 
@@ -20,10 +20,10 @@ pub mod flags;
 //  D.  mem_a   (4)  : Memory addresses (pc, dst_addr, op0_addr, op1_addr)
 //  E.  mem_v   (4)  : Memory values (inst, dst, op0, op1)
 //  F.  offsets (3)  : (off_dst, off_op0, off_op1)
-//  G.  aux     (2)  : (t0, t1)
+//  G.  derived (3)  : (t0, t1, mul)
 //
-//  A                B C  D    E    F
-// ├xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx┤
+//  A                B C  D    E    F   G
+// ├xxxxxxxxxxxxxxxx|x|xx|xxxx|xxxx|xxx|xxx┤
 //
 
 pub const FLAG_TRACE_OFFSET: usize = 0;
@@ -50,11 +50,11 @@ pub const OFF_X_TRACE_OFFSET: usize = 27;
 pub const OFF_X_TRACE_WIDTH: usize = 3;
 pub const OFF_X_TRACE_RANGE: Range<usize> = range(OFF_X_TRACE_OFFSET, OFF_X_TRACE_WIDTH);
 
-pub const TX_TRACE_OFFSET: usize = 30;
-pub const TX_TRACE_WIDTH: usize = 2;
-pub const TX_TRACE_RANGE: Range<usize> = range(TX_TRACE_OFFSET, TX_TRACE_WIDTH);
+pub const DERIVED_TRACE_OFFSET: usize = 30;
+pub const DERIVED_TRACE_WIDTH: usize = 3;
+pub const DERIVED_TRACE_RANGE: Range<usize> = range(DERIVED_TRACE_OFFSET, DERIVED_TRACE_WIDTH);
 
-pub const TRACE_WIDTH: usize = 32;
+pub const TRACE_WIDTH: usize = 33;
 
 // AUX TRACE LAYOUT (Memory)
 // -----------------------------------------------------------------------------------------
@@ -88,6 +88,12 @@ pub const A_RC_PRIME_WIDTH: usize = 3;
 
 pub const P_RC_OFFSET: usize = 15;
 pub const P_RC_WIDTH: usize = 3;
+
+// Aux column indices
+
+pub const P_M_LAST: usize = P_M_OFFSET + P_M_WIDTH - 1;
+pub const A_RC_PRIME_FIRST: usize = A_RC_PRIME_OFFSET;
+pub const A_RC_PRIME_LAST: usize = A_RC_PRIME_OFFSET + 2;
 
 /// Returns a [Range] initialized with the specified `start` and with `end` set to `start` + `len`.
 pub const fn range(start: usize, len: usize) -> Range<usize> {

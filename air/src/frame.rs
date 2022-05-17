@@ -102,7 +102,7 @@ impl<'a, E: FieldElement> MainFrameSegment<'a, E> {
             DataSegment::MemoryAddress => MEM_A_TRACE_OFFSET,
             DataSegment::MemoryValues => MEM_V_TRACE_OFFSET,
             DataSegment::Offsets => OFF_X_TRACE_OFFSET,
-            DataSegment::TempValues => TX_TRACE_OFFSET,
+            DataSegment::TempValues => DERIVED_TRACE_OFFSET,
         };
         self.table.get_row(self.row_start)[offset + pos]
     }
@@ -160,12 +160,15 @@ impl<'a, E: FieldElement + From<Felt>> MainFrameSegment<'a, E> {
     pub fn inst_size(&self) -> E {
         self.f_op1_val() + Felt::ONE.into()
     }
-    /// Constraint auxiliary values
+    /// Derived trace values
     pub fn t0(&self) -> E {
         self.get(0, DataSegment::TempValues)
     }
     pub fn t1(&self) -> E {
         self.get(1, DataSegment::TempValues)
+    }
+    pub fn mul(&self) -> E {
+        self.get(2, DataSegment::TempValues)
     }
     /// Virtual columns of memory addreses and values
     pub fn a_m(&self, idx: usize) -> E {
@@ -214,7 +217,6 @@ impl<'a, E: FieldElement + From<Felt>> FlagDecomposition<E> for MainFrameSegment
 #[derive(Debug, Clone)]
 pub struct AuxEvaluationFrame<E: FieldElement> {
     table: Table<E>, // row-major indexing
-    offset: usize,
 }
 
 impl<E: FieldElement> EvaluationFrame<E> for AuxEvaluationFrame<E> {
@@ -226,12 +228,11 @@ impl<E: FieldElement> EvaluationFrame<E> for AuxEvaluationFrame<E> {
         let num_cols = air.trace_layout().aux_trace_width();
         AuxEvaluationFrame {
             table: Table::new(num_rows, num_cols),
-            offset: 0,
         }
     }
 
     fn from_table(table: Table<E>) -> Self {
-        Self { table, offset: 0 }
+        Self { table }
     }
 
     // ROW MUTATORS

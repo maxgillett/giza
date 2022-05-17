@@ -1,6 +1,5 @@
 // Modified from https://github.com/o1-labs/proof-systems
 
-use std::convert::TryInto;
 use std::fmt::{Display, Formatter, Result};
 use std::ops::{Index, IndexMut};
 
