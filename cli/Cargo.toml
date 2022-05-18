@@ -1,0 +1,13 @@
+[package]
+name = "giza-cli"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.57"
+
+[dependencies]
+clap = { version = "3.1.18", features = ["derive"] }
+
+[[bin]]
+name = "giza"
+path = "src/giza.rs"
+doc = false
