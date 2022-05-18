@@ -28,6 +28,17 @@ pub fn execute(
     Ok((outputs, proof))
 }
 
+pub fn prove(
+    trace: ExecutionTrace,
+    options: &ProofOptions,
+) -> Result<StarkProof, ExecutionError> {
+    // generate STARK proof
+    let prover = ExecutionProver::new(options.clone());
+    let proof = prover.prove(trace).map_err(ExecutionError::ProverError)?;
+
+    Ok(proof)
+}
+
 // PROVER
 // ================================================================================================
 

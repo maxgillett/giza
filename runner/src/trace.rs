@@ -14,6 +14,20 @@ pub struct ExecutionTrace {
     public_mem: Memory,
 }
 
+pub fn load_trace_from_file(path: &str) -> ExecutionTrace {
+    // TODO.
+    ExecutionTrace {
+        layout: TraceLayout::new(
+            TRACE_WIDTH,
+            [12], // aux_segment widths
+            [2],  // aux_segment rands
+        ),
+        meta: Vec::new(),
+        trace: Matrix::new(vec![]),
+        public_mem: Memory::new(vec![]).clone(),
+    }
+}
+
 /// A virtual column is composed of one or more subcolumns.
 struct VirtualColumn<'a, E: FieldElement> {
     subcols: &'a [Vec<E>],

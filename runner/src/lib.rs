@@ -8,6 +8,7 @@ pub mod hints;
 
 mod trace;
 pub use trace::ExecutionTrace;
+pub use trace::load_trace_from_file;
 
 mod errors;
 pub use errors::ExecutionError;

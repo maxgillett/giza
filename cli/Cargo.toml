@@ -6,6 +6,9 @@ rust-version = "1.57"
 
 [dependencies]
 clap = { version = "3.1.18", features = ["derive"] }
+air = { package = "giza-air", path = "../air", version = "0.1", default-features = false }
+prover = { package = "giza-prover", path = "../prover", version = "0.1", default-features = false }
+runner = { package = "giza-runner", path = "../runner", version = "0.1", default-features = false }
 
 [[bin]]
 name = "giza"
