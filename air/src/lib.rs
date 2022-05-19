@@ -102,7 +102,7 @@ impl Air for ProcessorAir {
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Felt>> {
-        let last_step = self.trace_length() - 1;
+        let last_step = self.pub_inputs.num_steps - 1;
         vec![
             // Initial and final 'pc' register
             Assertion::single(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.init.pc),
