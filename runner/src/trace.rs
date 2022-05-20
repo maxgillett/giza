@@ -4,8 +4,13 @@ use giza_core::{
     Felt, FieldElement, StarkField, MEM_A_TRACE_RANGE, MEM_A_TRACE_WIDTH, MEM_V_TRACE_RANGE,
     OFF_X_TRACE_RANGE, TRACE_WIDTH,
 };
-
+use std::fs::File;
+use std::fs;
+use std::io::Read;
+use hex::encode;
+use std::iter;
 use winterfell::{Matrix, Trace, TraceLayout};
+use std::mem;
 
 pub struct ExecutionTrace {
     layout: TraceLayout,
@@ -14,7 +19,134 @@ pub struct ExecutionTrace {
     public_mem: Memory,
 }
 
-pub fn load_trace_from_file(path: &str) -> ExecutionTrace {
+fn read_binary(path: &str) -> Vec<u8> {
+    let mut file = File::open(&path).expect("no file found");
+    let metadata = fs::metadata(&path).expect("unable to read metadata");
+    let mut buffer = vec![0; metadata.len() as usize];
+    file.read(&mut buffer).expect("buffer overflow");
+    buffer
+}
+
+
+// Memory format.
+// List<MemoryItem>
+
+// https://sourcegraph.com/github.com/starkware-libs/cairo-lang@2abd303e1808612b724bc1412b2b5babd04bb4e7/-/blob/src/starkware/cairo/lang/vm/cairo_run.py?L368:9
+// 3618502788666131213697322783095070105623107215331596699973092056135872020481
+// field_bytes = math.ceil(program.prime.bit_length() / 8) = 32
+
+struct MemoryDump {
+    items: Vec<MemoryItem>,
+}
+
+struct MemoryItem {
+    // little endian
+    address: [u8; 8],
+    value: [u8; 32],
+}
+struct TraceItem {
+    ap: [u8; 1],
+    fp: [u8; 1],
+    pc: [u8; 1]
+}
+use std::path::PathBuf;
+
+
+pub fn load_trace_from_file(trace_path: PathBuf, memory_path: PathBuf) -> ExecutionTrace {
+    {
+        let mut f = File::open(&memory_path)
+            .expect("no file found");
+        let metadata = fs::metadata(&memory_path)
+            .expect("unable to read metadata");
+        let length = metadata.len() as usize;
+
+        println!("Memory:");
+        
+        let public_mem = Memory::new(vec![]).clone();
+        let mut bytes_read = 0;
+
+        loop {
+            let mut memory_item: MemoryItem = unsafe { mem::zeroed() };
+            
+            if bytes_read == length {
+                break
+            }
+
+            bytes_read += f.read(&mut memory_item.address).unwrap();
+            memory_item.address = memory_item.address
+                .iter()
+                .map(|x| x.to_le_bytes()[0])
+                .collect::<Vec<u8>>()
+                .try_into()
+                .unwrap();
+
+            bytes_read += f.read(&mut memory_item.value).unwrap();
+            
+            memory_item.value = memory_item.value
+                .iter()
+                .map(|x| x.to_be_bytes()[0])
+                .collect::<Vec<u8>>()
+                .try_into()
+                .unwrap();
+
+            // println!("{:#06x} {:#010x}", memory_item.address, memory_item.value);
+            println!("{} {}", hex::encode(memory_item.address), hex::encode(memory_item.value));
+
+            // public_mem.write(
+            //     // Felt::try_from(memory_item.address).ok(),
+            //     // Felt::try_from(memory_item.value).ok(),
+            //     *Felt::bytes_as_elements(&memory_item.address).unwrap(),
+            //     *Felt::bytes_as_elements(&memory_item.value).unwrap()
+            // );
+        }
+    }
+
+    {
+        let mut f = File::open(&trace_path)
+            .expect("no file found");
+        let metadata = fs::metadata(&trace_path)
+            .expect("unable to read metadata");
+        let length = metadata.len() as usize;
+
+        println!("Trace:");
+        
+        let mut bytes_read = 0;
+        let mut i = 0;
+
+        loop {
+            let mut trace_item: TraceItem = unsafe { mem::zeroed() };
+            
+            if bytes_read == length {
+                break
+            }
+
+            bytes_read += f.read(&mut trace_item.ap).unwrap();
+            bytes_read += f.read(&mut trace_item.fp).unwrap();
+            bytes_read += f.read(&mut trace_item.pc).unwrap();
+
+            // println!("{:#06x} {:#010x}", memory_item.address, memory_item.value);
+            println!(
+                "{:#04x} ap={} fp={} pc={}", 
+                i,
+                hex::encode(trace_item.ap), 
+                hex::encode(trace_item.fp),
+                hex::encode(trace_item.pc),
+            );
+
+            i += 1;
+
+            // public_mem.write(
+            //     // Felt::try_from(memory_item.address).ok(),
+            //     // Felt::try_from(memory_item.value).ok(),
+            //     *Felt::bytes_as_elements(&memory_item.address).unwrap(),
+            //     *Felt::bytes_as_elements(&memory_item.value).unwrap()
+            // );
+        }
+    }
+    
+
+    // let trace = 
+
     // TODO.
     ExecutionTrace {
         layout: TraceLayout::new(
@@ -24,6 +156,7 @@ pub fn load_trace_from_file(path: &str) -> ExecutionTrace {
         ),
         meta: Vec::new(),
         trace: Matrix::new(vec![]),
+        // public_mem: public_mem,
         public_mem: Memory::new(vec![]).clone(),
     }
 }

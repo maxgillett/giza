@@ -41,6 +41,17 @@ fn main() {
         Felt::from(0x10780017fff7fffu64), // infinite loop
     ];
 
+    // Memory is 20 bytes.
+    // Then we have
+    // 41 # beginning of output
+    // 44 # end of output
+    // 44 # end of program
+    // new Program(memory, address pointer, program counter, hints)
+    // pc = 5
+    // ap = 24
+    // verify:
+    // pc :  5 -> 20
+    // ap : 24 -> 41
     let mut mem = Memory::new(instrs);
     mem.write(Felt::from(21u32), Felt::from(41u32)); // beginning of output
     mem.write(Felt::from(22u32), Felt::from(44u32)); // end of output
