@@ -45,9 +45,9 @@ struct MemoryItem {
     value: [u8; 32],
 }
 struct TraceItem {
-    ap: [u8; 1],
-    fp: [u8; 1],
-    pc: [u8; 1]
+    ap: [u8; 8],
+    fp: [u8; 8],
+    pc: [u8; 8]
 }
 use std::path::PathBuf;
 
@@ -63,34 +63,39 @@ pub fn load_trace_from_file(trace_path: PathBuf, memory_path: PathBuf) -> Execut
         println!("Memory:");
         
         let public_mem = Memory::new(vec![]).clone();
+        let mut memory_items: Vec<MemoryItem> = vec![];
         let mut bytes_read = 0;
 
         loop {
-            let mut memory_item: MemoryItem = unsafe { mem::zeroed() };
-            
             if bytes_read == length {
                 break
             }
 
-            bytes_read += f.read(&mut memory_item.address).unwrap();
-            memory_item.address = memory_item.address
+            let mut address: [u8; 8];
+            let mut value: [u8; 32];
+
+            bytes_read += f.read(&mut address).unwrap();
+            address = address
                 .iter()
                 .map(|x| x.to_le_bytes()[0])
                 .collect::<Vec<u8>>()
                 .try_into()
                 .unwrap();
 
-            bytes_read += f.read(&mut memory_item.value).unwrap();
-            
-            memory_item.value = memory_item.value
+            bytes_read += f.read(&mut value).unwrap();            
+            value = value
                 .iter()
-                .map(|x| x.to_be_bytes()[0])
+                .map(|x| x.to_le_bytes()[0])
                 .collect::<Vec<u8>>()
                 .try_into()
                 .unwrap();
+            
+            println!("{} {}", hex::encode(address), hex::encode(value));
 
-            // println!("{:#06x} {:#010x}", memory_item.address, memory_item.value);
-            println!("{} {}", hex::encode(memory_item.address), hex::encode(memory_item.value));
+            memory_items.push(MemoryItem {
+                address: address,
+                value: value
+            });
 
             // public_mem.write(
             //     // Felt::try_from(memory_item.address).ok(),
@@ -101,7 +106,10 @@ pub fn load_trace_from_file(trace_path: PathBuf, memory_path: PathBuf) -> Execut
         }
     }
 
+
     {
+        let mut trace = Matrix::new(vec![]);
+
         let mut f = File::open(&trace_path)
             .expect("no file found");
         let metadata = fs::metadata(&trace_path)
@@ -113,24 +121,36 @@ pub fn load_trace_from_file(trace_path: PathBuf, memory_path: PathBuf) -> Execut
         let mut bytes_read = 0;
         let mut i = 0;
 
+        let mut trace_elements: Vec<Vec<Felt>> = Vec::new();
+        let mut trace_items: Vec<TraceItem> = vec![];
+
         loop {
-            let mut trace_item: TraceItem = unsafe { mem::zeroed() };
+            let ap: [u8; 8];
+            let fp: [u8; 8];
+            let pc: [u8; 8];
             
             if bytes_read == length {
                 break
             }
+            
+            bytes_read += f.read(&mut buf).unwrap();
+            bytes_read += f.read(&mut fp).unwrap();
+            bytes_read += f.read(&mut pc).unwrap();
+            
+            trace_items.push(TraceItem {
+                ap: ap,
+                fp: fp,
+                pc: pc
+            });
 
-            bytes_read += f.read(&mut trace_item.ap).unwrap();
-            bytes_read += f.read(&mut trace_item.fp).unwrap();
-            bytes_read += f.read(&mut trace_item.pc).unwrap();
+            // trace.read_row_into(&);
 
-            // println!("{:#06x} {:#010x}", memory_item.address, memory_item.value);
             println!(
                 "{:#04x} ap={} fp={} pc={}", 
                 i,
-                hex::encode(trace_item.ap), 
-                hex::encode(trace_item.fp),
-                hex::encode(trace_item.pc),
+                hex::encode(ap), 
+                hex::encode(fp),
+                hex::encode(pc),
             );
 
             i += 1;
@@ -145,8 +165,6 @@ pub fn load_trace_from_file(trace_path: PathBuf, memory_path: PathBuf) -> Execut
     }
     
 
-    // let trace = 
-
     // TODO.
     ExecutionTrace {
         layout: TraceLayout::new(
@@ -155,7 +173,7 @@ pub fn load_trace_from_file(trace_path: PathBuf, memory_path: PathBuf) -> Execut
             [2],  // aux_segment rands
         ),
         meta: Vec::new(),
-        trace: Matrix::new(vec![]),
+        trace: Matrix::new(trace_elements),
         // public_mem: public_mem,
         public_mem: Memory::new(vec![]).clone(),
     }
