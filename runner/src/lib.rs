@@ -12,3 +12,5 @@ pub use trace::load_trace_from_file;
 
 mod errors;
 pub use errors::ExecutionError;
+
+mod cairo_interop;

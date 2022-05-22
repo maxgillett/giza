@@ -4,13 +4,9 @@ use giza_core::{
     Felt, FieldElement, StarkField, MEM_A_TRACE_RANGE, MEM_A_TRACE_WIDTH, MEM_V_TRACE_RANGE,
     OFF_X_TRACE_RANGE, TRACE_WIDTH,
 };
-use std::fs::File;
-use std::fs;
-use std::io::Read;
-use hex::encode;
-use std::iter;
 use winterfell::{Matrix, Trace, TraceLayout};
-use std::mem;
+use std::path::PathBuf;
+use crate::cairo_interop::{read_trace_bin, read_memory_bin};
 
 pub struct ExecutionTrace {
     layout: TraceLayout,
@@ -19,153 +15,56 @@ pub struct ExecutionTrace {
     public_mem: Memory,
 }
 
-fn read_binary(path: &str) -> Vec<u8> {
-    let mut file = File::open(&path).expect("no file found");
-    let metadata = fs::metadata(&path).expect("unable to read metadata");
-    let mut buffer = vec![0; metadata.len() as usize];
-    file.read(&mut buffer).expect("buffer overflow");
-    buffer
+
+/*
+Pop this in winterfell/math/src/field/f128/mod.rs
+
+impl From<&[u8; 32]> for BaseElement {
+    /// Converts a 256-bit value into a field element. 
+    /// TODO: This is not functional - it just truncates it to fit the f128 API.
+    fn from(value: &[u8; 32]) -> Self {
+        let mut buf: [u8; 16] = Default::default();
+        buf.copy_from_slice(&value[0..16]);
+        return BaseElement::new(u128::from_le_bytes(buf));
+    }
 }
-
-
-// Memory format.
-// List<MemoryItem>
-
-// https://sourcegraph.com/github.com/starkware-libs/cairo-lang@2abd303e1808612b724bc1412b2b5babd04bb4e7/-/blob/src/starkware/cairo/lang/vm/cairo_run.py?L368:9
-// 3618502788666131213697322783095070105623107215331596699973092056135872020481
-// field_bytes = math.ceil(program.prime.bit_length() / 8) = 32
-
-struct MemoryDump {
-    items: Vec<MemoryItem>,
-}
-
-struct MemoryItem {
-    // little endian
-    address: [u8; 8],
-    value: [u8; 32],
-}
-struct TraceItem {
-    ap: [u8; 8],
-    fp: [u8; 8],
-    pc: [u8; 8]
-}
-use std::path::PathBuf;
-
+*/
 
 pub fn load_trace_from_file(trace_path: PathBuf, memory_path: PathBuf) -> ExecutionTrace {
-    {
-        let mut f = File::open(&memory_path)
-            .expect("no file found");
-        let metadata = fs::metadata(&memory_path)
-            .expect("unable to read metadata");
-        let length = metadata.len() as usize;
-
-        println!("Memory:");
-        
-        let public_mem = Memory::new(vec![]).clone();
-        let mut memory_items: Vec<MemoryItem> = vec![];
-        let mut bytes_read = 0;
-
-        loop {
-            if bytes_read == length {
-                break
-            }
-
-            let mut address: [u8; 8];
-            let mut value: [u8; 32];
-
-            bytes_read += f.read(&mut address).unwrap();
-            address = address
-                .iter()
-                .map(|x| x.to_le_bytes()[0])
-                .collect::<Vec<u8>>()
-                .try_into()
-                .unwrap();
-
-            bytes_read += f.read(&mut value).unwrap();            
-            value = value
-                .iter()
-                .map(|x| x.to_le_bytes()[0])
-                .collect::<Vec<u8>>()
-                .try_into()
-                .unwrap();
-            
-            println!("{} {}", hex::encode(address), hex::encode(value));
-
-            memory_items.push(MemoryItem {
-                address: address,
-                value: value
-            });
-
-            // public_mem.write(
-            //     // Felt::try_from(memory_item.address).ok(),
-            //     // Felt::try_from(memory_item.value).ok(),
-            //     *Felt::bytes_as_elements(&memory_item.address).unwrap(),
-            //     *Felt::bytes_as_elements(&memory_item.value).unwrap()
-            // );
-        }
-    }
-
-
-    {
-        let mut trace = Matrix::new(vec![]);
-
-        let mut f = File::open(&trace_path)
-            .expect("no file found");
-        let metadata = fs::metadata(&trace_path)
-            .expect("unable to read metadata");
-        let length = metadata.len() as usize;
-
-        println!("Trace:");
-        
-        let mut bytes_read = 0;
-        let mut i = 0;
-
-        let mut trace_elements: Vec<Vec<Felt>> = Vec::new();
-        let mut trace_items: Vec<TraceItem> = vec![];
-
-        loop {
-            let ap: [u8; 8];
-            let fp: [u8; 8];
-            let pc: [u8; 8];
-            
-            if bytes_read == length {
-                break
-            }
-            
-            bytes_read += f.read(&mut buf).unwrap();
-            bytes_read += f.read(&mut fp).unwrap();
-            bytes_read += f.read(&mut pc).unwrap();
-            
-            trace_items.push(TraceItem {
-                ap: ap,
-                fp: fp,
-                pc: pc
-            });
-
-            // trace.read_row_into(&);
-
-            println!(
-                "{:#04x} ap={} fp={} pc={}", 
-                i,
-                hex::encode(ap), 
-                hex::encode(fp),
-                hex::encode(pc),
-            );
-
-            i += 1;
-
-            // public_mem.write(
-            //     // Felt::try_from(memory_item.address).ok(),
-            //     // Felt::try_from(memory_item.value).ok(),
-            //     *Felt::bytes_as_elements(&memory_item.address).unwrap(),
-            //     *Felt::bytes_as_elements(&memory_item.value).unwrap()
-            // );
-        }
-    }
+    // Load memory.bin.
+    let memory = read_memory_bin(memory_path);
     
+    // Load trace.bin.
+    let trace_elements = read_trace_bin(trace_path);
+    println!("trace_elements.len() = {}", trace_elements.len());
 
-    // TODO.
+    // Pad the trace to a power of 2.
+    let mut trace_elements_padded = trace_elements.clone();
+    let desired_len = trace_elements.len().next_power_of_two();
+
+    for i in 0..(desired_len - trace_elements.len()) {
+        trace_elements_padded.push(
+            vec![ Felt::new(0), Felt::new(0), Felt::new(0) ]
+        );
+    }
+
+    println!("trace_elements_padded.len() = {}", trace_elements_padded.len());
+
+    // Now rearrange for the matrix layout.
+    // let ap = trace_elements_padded
+    //     .iter()
+    //     .map(|x| x[0])
+    //     .collect::<Vec<Felt>>();
+    // let fp = trace_elements_padded
+    //     .iter()
+    //     .map(|x| x[1])
+    //     .collect::<Vec<Felt>>();
+    // let pc = trace_elements_padded
+    //     .iter()
+    //     .map(|x| x[2])
+    //     .collect::<Vec<Felt>>();
+    // let trace_matrix: Vec<Vec<Felt>> = vec![ ap, fp, pc ];
+    
     ExecutionTrace {
         layout: TraceLayout::new(
             TRACE_WIDTH,
@@ -173,9 +72,10 @@ pub fn load_trace_from_file(trace_path: PathBuf, memory_path: PathBuf) -> Execut
             [2],  // aux_segment rands
         ),
         meta: Vec::new(),
-        trace: Matrix::new(trace_elements),
-        // public_mem: public_mem,
-        public_mem: Memory::new(vec![]).clone(),
+        // TODO: the trace format used by Cairo is different to the one used
+        // by Giza.
+        trace: Matrix::new(vec![]),
+        public_mem: memory,
     }
 }
 
