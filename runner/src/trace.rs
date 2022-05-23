@@ -132,14 +132,22 @@ impl ExecutionTrace {
 
         // Append trace cells to offsets to fill in gaps between rc_min and rc_max
         // after biasing the offset values
-        let b15 = Felt::new(2).exp(15);
+        let b15 = Felt::from(2u8).exp(15u32.into());
         let mut rc_column = VirtualColumn::new(&state.offsets)
             .to_column()
             .into_iter()
             .map(|x| x + b15)
             .collect::<Vec<_>>();
-        let rc_min = rc_column.iter().map(|x| x.as_int() as u16).min().unwrap();
-        let rc_max = rc_column.iter().map(|x| x.as_int() as u16).max().unwrap();
+        let rc_min: u16 = rc_column
+            .iter()
+            .map(|x| x.as_int().try_into().unwrap())
+            .min()
+            .unwrap();
+        let rc_max: u16 = rc_column
+            .iter()
+            .map(|x| x.as_int().try_into().unwrap())
+            .max()
+            .unwrap();
         for x in rc_min..rc_max {
             if !rc_column.contains(&x.into()) {
                 rc_column.push(x.into());

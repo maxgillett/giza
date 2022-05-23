@@ -7,6 +7,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::convert::TryInto;
 
 #[derive(Default)]
 pub struct HintManager {
@@ -18,7 +19,8 @@ impl HintManager {
         self.hints.entry(pc).or_default().push(hint);
     }
     pub fn get_hints(&self, pc: Felt) -> Option<&Vec<Hint>> {
-        self.hints.get(&(pc.as_int() as u64))
+        let pc: u64 = pc.as_int().try_into().unwrap();
+        self.hints.get(&pc)
     }
 }
 
@@ -75,9 +77,18 @@ impl Hint {
         // (e.g. reference manager setter method) to track memory updates
         Python::with_gil(|py| {
             let locals = PyDict::new(py);
-            locals.set_item("pc", step.curr.pc.as_int())?;
-            locals.set_item("ap", step.curr.ap.as_int())?;
-            locals.set_item("fp", step.curr.fp.as_int())?;
+            locals.set_item(
+                "pc",
+                TryInto::<u64>::try_into(step.curr.pc.as_int()).unwrap(),
+            )?;
+            locals.set_item(
+                "ap",
+                TryInto::<u64>::try_into(step.curr.ap.as_int()).unwrap(),
+            )?;
+            locals.set_item(
+                "fp",
+                TryInto::<u64>::try_into(step.curr.fp.as_int()).unwrap(),
+            )?;
             locals.set_item("memory", &*step.mem)?;
             locals.set_item("memory_updates", PyDict::new(py))?;
             py.run(self.code.as_str(), None, Some(&locals))
@@ -112,7 +123,7 @@ impl<'a> FromPyObject<'a> for MemoryUpdate {
         for (key, val) in dict.downcast::<PyDict>()?.iter() {
             mem_update.0.push((
                 key.extract::<u64>()?,
-                Word::new(Felt::new(val.extract::<u128>()?)),
+                Word::new(Felt::from(val.extract::<u128>()?)),
             ));
         }
         Ok(mem_update)

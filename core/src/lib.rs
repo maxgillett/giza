@@ -1,11 +1,16 @@
+#![feature(array_chunks)]
+
 pub use core::ops::Range;
 
-pub use math::{fields::f128::BaseElement as Felt, ExtensionOf, FieldElement, StarkField};
+pub use math::{ExtensionOf, FieldElement, StarkField};
 
 pub mod word;
 pub use word::{
     bias, FieldHelpers, FlagDecomposition, FlagGroupDecomposition, OffsetDecomposition, Word,
 };
+
+pub mod field;
+pub use field::f252::{BaseElement as Felt, BigInt};
 
 pub mod inputs;
 pub use inputs::ProgramInputs;

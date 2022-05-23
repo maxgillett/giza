@@ -114,11 +114,11 @@ impl<'a> Step<'a> {
     fn set_op1(&mut self, op0: Option<Felt>) -> (Felt, Option<Felt>, Felt) {
         let (reg, size) = match self.inst().op1_src() {
             /*0*/
-            OP1_DBL => (op0.expect("None op0 for OP1_DBL"), Felt::new(1)), // double indexing, op0 should be positive for address
+            OP1_DBL => (op0.expect("None op0 for OP1_DBL"), Felt::from(1u8)), // double indexing, op0 should be positive for address
             /*1*/
             OP1_VAL => (self.curr.pc, Felt::from(2u32)), // off_op1 will be 1 and then op1 contains an immediate value
-            /*2*/ OP1_FP => (self.curr.fp, Felt::new(1)),
-            /*4*/ OP1_AP => (self.curr.ap, Felt::new(1)),
+            /*2*/ OP1_FP => (self.curr.fp, Felt::from(1u8)),
+            /*4*/ OP1_AP => (self.curr.ap, Felt::from(1u8)),
             _ => panic!("Invalid op1_src flagset"),
         };
         let op1_addr = reg + self.inst().off_op1(); // apply second offset to corresponding register
@@ -141,7 +141,7 @@ impl<'a> Step<'a> {
                 && self.inst().ap_up() != AP_ADD
             /* not 1*/
             {
-                res = Some(Felt::new(0)); // "unused"
+                res = Some(Felt::from(0u8)); // "unused"
             } else {
                 panic!("Invalid JNZ instruction");
             }
@@ -207,7 +207,7 @@ impl<'a> Step<'a> {
             /*4*/
             PC_JNZ => {
                 // conditional relative jump (jnz)
-                if dst == Some(Felt::new(0)) {
+                if dst == Some(Felt::from(0u8)) {
                     // if condition false, common case
                     Some(self.curr.pc + size)
                 } else {
@@ -251,14 +251,14 @@ impl<'a> Step<'a> {
             // "call" instruction
             self.mem.write(self.curr.ap, self.curr.fp); // Save current fp
             self.mem
-                .write(self.curr.ap + Felt::new(1), self.curr.pc + size); // Save next instruction
+                .write(self.curr.ap + Felt::from(1u8), self.curr.pc + size); // Save next instruction
 
             dst_update = self.mem.read(self.curr.ap);
-            op0_update = self.mem.read(self.curr.ap + Felt::new(1));
+            op0_update = self.mem.read(self.curr.ap + Felt::from(1u8));
 
             // Update fp
             // pointer for next frame is after current fp and instruction after call
-            next_fp = Some(self.curr.ap + Felt::from(2u32));
+            next_fp = Some(self.curr.ap + Felt::from(2u8));
 
             // Update ap
             match self.inst().ap_up() {
@@ -280,7 +280,7 @@ impl<'a> Step<'a> {
                     // ap += <op> should be larger than current ap
                     next_ap = Some(self.curr.ap + res.expect("None res after AP_ADD"))
                 }
-                /*2*/ AP_ONE => next_ap = Some(self.curr.ap + Felt::new(1)), // ap++
+                /*2*/ AP_ONE => next_ap = Some(self.curr.ap + Felt::from(1u8)), // ap++
                 _ => panic!("Invalid ap_up flagset"),
             }
 
@@ -390,15 +390,15 @@ impl State {
         }
 
         // Result
-        self.res[0][step] = s.res.unwrap_or(Felt::new(0));
+        self.res[0][step] = s.res.unwrap_or(Felt::from(0u8));
 
         // Instruction
         self.mem_v[0][step] = s.inst.word();
 
         // Auxiliary values
-        self.mem_v[1][step] = s.dst.unwrap_or(Felt::new(0));
-        self.mem_v[2][step] = s.op0.unwrap_or(Felt::new(0));
-        self.mem_v[3][step] = s.op1.unwrap_or(Felt::new(0));
+        self.mem_v[1][step] = s.dst.unwrap_or(Felt::from(0u8));
+        self.mem_v[2][step] = s.op0.unwrap_or(Felt::from(0u8));
+        self.mem_v[3][step] = s.op1.unwrap_or(Felt::from(0u8));
 
         // Operands
         self.mem_a[1][step] = s.dst_addr;
@@ -433,7 +433,7 @@ impl<'a> Program<'a> {
             steps: 0,
             mem,
             init: RegisterState::new(Felt::from(pc), Felt::from(ap), Felt::from(ap)),
-            fin: RegisterState::new(Felt::new(0), Felt::new(0), Felt::new(0)),
+            fin: RegisterState::new(Felt::from(0u8), Felt::from(0u8), Felt::from(0u8)),
             hints,
         }
     }
