@@ -141,8 +141,8 @@ impl Randomizable for BaseElement {
 }
 
 impl Display for BaseElement {
-    fn fmt(&self, _f: &mut Formatter) -> core::fmt::Result {
-        unimplemented!()
+    fn fmt(&self, f: &mut Formatter) -> core::fmt::Result {
+        write!(f, "{:?}", self.0)
     }
 }
 
@@ -364,8 +364,15 @@ impl Serializable for BaseElement {
 }
 
 impl Deserializable for BaseElement {
-    fn read_from<R: ByteReader>(_source: &mut R) -> Result<Self, DeserializationError> {
-        unimplemented!()
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+        let bytes: [u8; 32] = source.read_u8_array()?;
+        let value: [u64; 4] = bytes
+            .array_chunks::<8>()
+            .map(|c| u64::from_le_bytes(*c))
+            .collect::<Vec<u64>>()
+            .try_into()
+            .unwrap();
+        Ok(BaseElement(Fr(value)))
     }
 }
 

@@ -1,6 +1,6 @@
 use super::{AuxEvaluationFrame, AuxTraceRandElements, MainEvaluationFrame};
 use giza_core::{
-    range, BigInt, ExtensionOf, Felt, FieldElement, FlagDecomposition, OffsetDecomposition, Range,
+    range, ExtensionOf, Felt, FieldElement, FlagDecomposition, OffsetDecomposition, Range,
 };
 
 pub trait EvaluationResult<E: FieldElement> {
@@ -49,7 +49,6 @@ const P_M: Range<usize> = range(8, 4);
 const A_RC_PRIME: Range<usize> = range(12, 3);
 const P_RC: Range<usize> = range(15, 3);
 
-// TODO: This shouldn't be specific to the Felt implementation
 const TWO: Felt = Felt::TWO;
 
 impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
