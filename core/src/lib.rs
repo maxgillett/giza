@@ -9,6 +9,8 @@ pub use word::{
     bias, FieldHelpers, FlagDecomposition, FlagGroupDecomposition, OffsetDecomposition, Word,
 };
 
+// TODO: Make the field element configurable in the CLI
+//pub use math::fields::f128::BaseElement as Felt;
 pub mod field;
 pub use field::f252::{BaseElement as Felt, BigInt};
 

@@ -4,7 +4,7 @@
 
 use core::{
     convert::{TryFrom, TryInto},
-    fmt::{Debug, Display, Formatter},
+    fmt::{Debug, Display, Formatter, LowerHex},
     ops::{
         Add, AddAssign, BitAnd, Div, DivAssign, Mul, MulAssign, Neg, Shl, Shr, ShrAssign, Sub,
         SubAssign,
@@ -92,15 +92,23 @@ impl FieldElement for BaseElement {
 impl BaseElement {
     // Equal to 2*2^256 mod M (R is derived from the macro)
     pub const TWO: Self = BaseElement(Fr([
-        0x7fff_ffff_ffff_bd0f,
+        0xffff_ffff_ffff_ffc1,
         0xffff_ffff_ffff_ffff,
         0xffff_ffff_ffff_ffff,
-        0xffff_ffff_ffff_fc1,
+        0x7fff_ffff_ffff_bd0,
     ]));
+
+    pub fn from_raw(value: [u64; 4]) -> Self {
+        BaseElement(Fr::from_raw(value))
+    }
+
+    pub fn to_raw(&self) -> BigInt {
+        self.0.to_raw()
+    }
 }
 
 impl StarkField for BaseElement {
-    /// sage: MODULUS = 2^251 - 17 * 2^192 + 1 \
+    /// sage: MODULUS = 2^251 + 17 * 2^192 + 1 \
     /// sage: GF(MODULUS).is_prime_field() \
     /// True \
     /// sage: GF(MODULUS).order() \
@@ -142,7 +150,7 @@ impl Randomizable for BaseElement {
 
 impl Display for BaseElement {
     fn fmt(&self, f: &mut Formatter) -> core::fmt::Result {
-        write!(f, "{:?}", self.0)
+        write!(f, "{}", self.to_raw())
     }
 }
 
@@ -329,28 +337,25 @@ impl From<[u8; 32]> for BaseElement {
 impl<'a> TryFrom<&'a [u8]> for BaseElement {
     type Error = String;
 
-    /// Converts a slice of bytes into a field element; returns error if the value encoded in bytes
-    /// is not a valid field element. The bytes are assumed to be in little-endian byte order.
+    /// Converts a slice of bytes into a field element. The bytes are assumed to be in
+    /// little-endian byte order. If the value is greater than or equal to the field modulus,
+    /// modular reduction is silently performed.
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         let mut value: [u64; 4] = [0; 4];
         for (i, c) in bytes.chunks(8).enumerate() {
             value[i] = u64::from_le_bytes(TryInto::<[u8; 8]>::try_into(c).unwrap());
         }
-        if BigInt(value) >= Self::MODULUS {
-            return Err(format!(
-                "cannot convert bytes into a field element: \
-                    value {:?} is greater or equal to the field modulus",
-                value
-            ));
-        }
         Ok(Self(Fr::from_raw(value)))
     }
 }
 
+// TODO: Why is this method not working? See commented lines in core/src/word/helpers.rs
 impl AsBytes for BaseElement {
     fn as_bytes(&self) -> &[u8] {
-        let ptr: *const BaseElement = self;
-        unsafe { slice::from_raw_parts(ptr as *const u8, BaseElement::ELEMENT_BYTES) }
+        //let ptr: *const Vec<u8> = &self.as_int().to_le_bytes();
+        //unsafe { slice::from_raw_parts(ptr as *const u8, ELEMENT_BYTES) }
+        let ptr: *const BigInt = &self.to_raw();
+        unsafe { slice::from_raw_parts(ptr as *const u8, ELEMENT_BYTES) }
     }
 }
 
@@ -544,9 +549,18 @@ impl BigInt {
     }
 }
 
+impl Display for BigInt {
+    fn fmt(&self, f: &mut Formatter) -> core::fmt::Result {
+        for i in (0..4).rev() {
+            LowerHex::fmt(&self.0[i], f)?;
+        }
+        Ok(())
+    }
+}
+
 impl Fr {
     pub fn from_raw(value: [u64; 4]) -> Self {
-        Fr(value) * R
+        Fr(value).mul(&R2)
     }
 
     pub fn to_raw(&self) -> BigInt {
@@ -568,4 +582,11 @@ fn write_le_bytes(value: [u64; 4], out: &mut [u8]) {
     for (src, dst) in value.iter().cloned().zip(out.chunks_exact_mut(8)) {
         dst.copy_from_slice(&src.to_le_bytes());
     }
+}
+
+#[test]
+fn as_int() {
+    let a = BaseElement::from_raw([3, 0, 0, 0]);
+    let b: u64 = a.as_int().try_into().unwrap();
+    assert_eq!(b, 3);
 }
