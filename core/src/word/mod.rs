@@ -158,7 +158,6 @@ impl OffsetDecomposition<Felt> for Word {
 
     fn off_op0(&self) -> Felt {
         // From the 32nd bit to the 17th
-        //println!("{:?}", self.word().chunk_u16(POS_OP0));
         bias(self.word().chunk_u16(POS_OP0))
     }
 

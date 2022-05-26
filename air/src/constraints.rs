@@ -49,7 +49,9 @@ const P_M: Range<usize> = range(8, 4);
 const A_RC_PRIME: Range<usize> = range(12, 3);
 const P_RC: Range<usize> = range(15, 3);
 
-const TWO: Felt = Felt::new(2);
+// TODO: Add constant to Winterfell field element implementations?
+//const TWO: Felt = Felt::new(2);
+const TWO: Felt = Felt::TWO;
 
 impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
     fn evaluate_instr_constraints(&mut self, frame: &MainEvaluationFrame<E>) {
@@ -63,10 +65,10 @@ impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
             };
         }
         // Instruction unpacking
-        let b15: E = TWO.exp(15).into();
-        let b16: E = TWO.exp(16).into();
-        let b32: E = TWO.exp(32).into();
-        let b48: E = TWO.exp(48).into();
+        let b15: E = TWO.exp(15u32.into()).into();
+        let b16: E = TWO.exp(16u32.into()).into();
+        let b32: E = TWO.exp(32u32.into()).into();
+        let b48: E = TWO.exp(48u32.into()).into();
         let a: E = curr
             .flags()
             .into_iter()

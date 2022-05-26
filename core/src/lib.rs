@@ -1,11 +1,18 @@
+#![feature(array_chunks)]
+
 pub use core::ops::Range;
 
-pub use math::{fields::f128::BaseElement as Felt, ExtensionOf, FieldElement, StarkField};
+pub use math::{ExtensionOf, FieldElement, StarkField};
 
 pub mod word;
 pub use word::{
     bias, FieldHelpers, FlagDecomposition, FlagGroupDecomposition, OffsetDecomposition, Word,
 };
+
+// TODO: Make the field element configurable in the CLI
+//pub use math::fields::f128::BaseElement as Felt;
+pub mod field;
+pub use field::f252::{BaseElement as Felt, BigInt};
 
 pub mod inputs;
 pub use inputs::ProgramInputs;

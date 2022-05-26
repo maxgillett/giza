@@ -1,7 +1,7 @@
 // Modified from https://github.com/o1-labs/proof-systems
 
 use super::{super::StarkField, Felt};
-use winter_utils::AsBytes;
+//use winter_utils::AsBytes;
 
 pub trait FieldHelpers {
     /// Return field element as byte, if it fits. Otherwise returns least significant byte
@@ -25,17 +25,20 @@ pub trait FieldHelpers {
 
 impl FieldHelpers for Felt {
     fn lsb(self) -> u8 {
-        self.as_bytes()[0]
+        //self.as_bytes()[0]
+        self.as_int().to_le_bytes()[0]
     }
 
     fn chunk_u16(self, pos: usize) -> Felt {
-        let bytes = self.as_bytes();
+        //let bytes = self.as_bytes();
+        let bytes = self.as_int().to_le_bytes();
         let chunk = u16::from(bytes[2 * pos]) + u16::from(bytes[2 * pos + 1]) * 2u16.pow(8);
         Felt::from(chunk)
     }
 
     fn to_u64(self) -> u64 {
-        let bytes = self.as_bytes();
+        //let bytes = self.as_bytes();
+        let bytes = self.as_int().to_le_bytes();
         let mut acc: u64 = 0;
         for i in 0..8 {
             acc += 2u64.pow(i * 8) * (bytes[i as usize] as u64);
@@ -62,7 +65,9 @@ impl FieldHelpers for Felt {
     }
 
     fn to_bits(self) -> Vec<bool> {
-        self.as_bytes().iter().fold(vec![], |mut bits, byte| {
+        //self.as_bytes().iter().fold(vec![], |mut bits, byte| {
+        let bytes = self.as_int().to_le_bytes();
+        bytes.iter().fold(vec![], |mut bits, byte| {
             let mut byte = *byte;
             for _ in 0..8 {
                 bits.push(byte & 0x01 == 0x01);
