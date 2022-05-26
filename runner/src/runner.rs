@@ -6,75 +6,14 @@ use crate::memory::Memory;
 use crate::trace::ExecutionTrace;
 use giza_core::{flags::*, *};
 
-use std::convert::TryInto;
-
-/// A structure to store program counter, allocation pointer and frame pointer
-#[derive(Clone, Copy)]
-pub struct RegisterState {
-    /// Program counter: points to address in memory
-    pub pc: Felt,
-    /// Allocation pointer: points to first free space in memory
-    pub ap: Felt,
-    /// Frame pointer: points to the beginning of the stack in memory (for arguments)
-    pub fp: Felt,
-}
-
-pub struct InstructionState {
-    /// Instruction
-    inst: Word,
-    inst_size: Felt,
-    /// Addresses
-    dst_addr: Felt,
-    op0_addr: Felt,
-    op1_addr: Felt,
-    /// Values
-    dst: Option<Felt>,
-    op0: Option<Felt>,
-    op1: Option<Felt>,
-    /// Result
-    res: Option<Felt>,
-}
-
-impl RegisterState {
-    /// Creates a new triple of pointers
-    pub fn new(pc: Felt, ap: Felt, fp: Felt) -> Self {
-        RegisterState { pc, ap, fp }
-    }
-}
-
-impl InstructionState {
-    /// Creates a new set instruction word and operand state
-    pub fn new(
-        inst: Word,
-        inst_size: Felt,
-        dst: Option<Felt>,
-        op0: Option<Felt>,
-        op1: Option<Felt>,
-        res: Option<Felt>,
-        dst_addr: Felt,
-        op0_addr: Felt,
-        op1_addr: Felt,
-    ) -> Self {
-        InstructionState {
-            inst,
-            inst_size,
-            dst,
-            op0,
-            op1,
-            res,
-            dst_addr,
-            op0_addr,
-            op1_addr,
-        }
-    }
-}
+//use std::convert::TryInto;
 
 /// A data structure to store a current step of computation
 pub struct Step<'a> {
     pub mem: &'a mut Memory,
-    hints: Option<&'a HintManager>,
     pub curr: RegisterState,
-    next: Option<RegisterState>,
+    pub next: Option<RegisterState>,
+    hints: Option<&'a HintManager>,
 }
 
 impl<'a> Step<'a> {
@@ -86,9 +25,9 @@ impl<'a> Step<'a> {
     ) -> Step<'a> {
         Step {
             mem,
-            hints,
             curr: ptrs,
             next: None,
+            hints,
         }
     }
 
@@ -473,14 +412,12 @@ impl State {
     }
 }
 
-/// This struct stores the needed information to run a program
+/// Stores all information needed to run a program
 pub struct Program<'a> {
     /// total number of steps
-    steps: Felt,
+    steps: usize,
     /// full execution memory
     mem: &'a mut Memory,
-    /// public memory
-    public_mem: Memory,
     /// initial register state
     init: RegisterState,
     /// final register state
@@ -492,11 +429,9 @@ pub struct Program<'a> {
 impl<'a> Program<'a> {
     /// Creates an execution from the public information (memory and initial pointers)
     pub fn new(mem: &mut Memory, pc: u64, ap: u64, hints: Option<HintManager>) -> Program {
-        let public_mem = mem.clone();
         Program {
-            steps: Felt::new(0),
+            steps: 0,
             mem,
-            public_mem,
             init: RegisterState::new(Felt::from(pc), Felt::from(ap), Felt::from(ap)),
             fin: RegisterState::new(Felt::new(0), Felt::new(0), Felt::new(0)),
             hints,
@@ -504,7 +439,7 @@ impl<'a> Program<'a> {
     }
 
     /// Outputs the total number of steps of the execution carried out by the runner
-    pub fn get_steps(&self) -> Felt {
+    pub fn get_steps(&self) -> usize {
         self.steps
     }
 
@@ -546,8 +481,8 @@ impl<'a> Program<'a> {
             }
         }
         self.fin = curr;
-        self.steps = Felt::from(n as u64);
+        self.steps = n;
 
-        Ok(ExecutionTrace::new(n, &mut state, &self.public_mem))
+        Ok(ExecutionTrace::new(n, &mut state, &self.mem))
     }
 }

@@ -1,6 +1,5 @@
 use air::{ProcessorAir, ProofOptions, PublicInputs};
-use giza_core::Felt;
-use runner::hints::{Hint, HintManager};
+use giza_core::{Felt, RegisterState};
 use runner::{Memory, Program};
 
 fn main() {
@@ -37,8 +36,7 @@ fn main() {
         Felt::from(0x48127ff67fff8000u64),
         Felt::from(0x1104800180018000u64),
         -Felt::from(17u64),
-        //Felt::from(0x208b7fff7fff7ffeu64),
-        Felt::from(0x10780017fff7fffu64), // infinite loop
+        Felt::from(0x208b7fff7fff7ffeu64),
     ];
 
     // Memory is 20 bytes.
@@ -53,26 +51,30 @@ fn main() {
     // pc :  5 -> 20
     // ap : 24 -> 41
     let mut mem = Memory::new(instrs);
-    mem.write(Felt::from(21u32), Felt::from(41u32)); // beginning of output
-    mem.write(Felt::from(22u32), Felt::from(44u32)); // end of output
-    mem.write(Felt::from(23u32), Felt::from(44u32)); // end of program
+    mem.write_pub(Felt::from(21u32), Felt::from(41u32)); // beginning of output
+    mem.write_pub(Felt::from(22u32), Felt::from(44u32)); // end of output
+    mem.write_pub(Felt::from(23u32), Felt::from(44u32)); // end of program
 
-    let mut hints = HintManager::default();
-    //hints.push_hint(7, Hint::new(String::from("memory[30]=5"), vec![], None));
-    //hints.push_hint(7, Hint::new(String::from("memory[31]=5"), vec![], None));
+    // run the program to create an execution trace
+    let mut program = Program::new(&mut mem, 5, 24, None);
+    let trace = program.execute().unwrap();
 
-    let mut program = Program::new(&mut mem, 5, 24, Some(hints));
+    // build the public inputs
+    let num_steps = program.get_steps();
+    let rc_min = trace.rc_min;
+    let rc_max = trace.rc_max;
+    let init = RegisterState::new(5u64, 24u64, 24u64);
+    let fin = RegisterState::new(20u64, 41u64, 41u64);
+    let pub_mem = trace.public_mem();
+    let pub_inputs = PublicInputs::new(init, fin, rc_min, rc_max, pub_mem, num_steps);
 
-    // execute the program and generate the proof of execution
+    // generate the proof of execution
     let proof_options = ProofOptions::with_96_bit_security();
-    let (_outputs, proof) = prover::execute(&mut program, &proof_options).unwrap();
+    let proof = prover::prove_trace(trace, &proof_options).unwrap();
     let proof_bytes = proof.to_bytes();
     println!("Proof size: {:.1} KB", proof_bytes.len() as f64 / 1024f64);
 
     // verify correct program execution
-    let pc = vec![Felt::new(5), Felt::new(20)];
-    let ap = vec![Felt::new(24), Felt::new(41)];
-    let pub_inputs = PublicInputs::new(pc, ap);
     match winterfell::verify::<ProcessorAir>(proof, pub_inputs) {
         Ok(_) => println!("Execution verified"),
         Err(err) => println!("Failed to verify execution: {}", err),

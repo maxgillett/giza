@@ -1,5 +1,7 @@
 use super::{AuxEvaluationFrame, AuxTraceRandElements, MainEvaluationFrame};
-use giza_core::{ExtensionOf, Felt, FieldElement, FlagDecomposition, OffsetDecomposition};
+use giza_core::{
+    range, ExtensionOf, Felt, FieldElement, FlagDecomposition, OffsetDecomposition, Range,
+};
 
 pub trait EvaluationResult<E: FieldElement> {
     fn evaluate_instr_constraints(&mut self, frame: &MainEvaluationFrame<E>);
@@ -24,20 +26,28 @@ pub trait AuxEvaluationResult<E: FieldElement, F: FieldElement + ExtensionOf<E>>
 }
 
 /// Main constraint identifiers
-pub const INST: usize = 16;
-pub const DST_ADDR: usize = 17;
-pub const OP0_ADDR: usize = 18;
-pub const OP1_ADDR: usize = 19;
-pub const NEXT_AP: usize = 20;
-pub const NEXT_FP: usize = 21;
-pub const NEXT_PC_1: usize = 22;
-pub const NEXT_PC_2: usize = 23;
-pub const T0: usize = 24;
-pub const T1: usize = 25;
-pub const MUL: usize = 26;
-pub const CALL_1: usize = 27;
-pub const CALL_2: usize = 28;
-pub const ASSERT_EQ: usize = 29;
+const INST: usize = 16;
+const DST_ADDR: usize = 17;
+const OP0_ADDR: usize = 18;
+const OP1_ADDR: usize = 19;
+const NEXT_AP: usize = 20;
+const NEXT_FP: usize = 21;
+const NEXT_PC_1: usize = 22;
+const NEXT_PC_2: usize = 23;
+const T0: usize = 24;
+const T1: usize = 25;
+const MUL1: usize = 26;
+const MUL2: usize = 27;
+const CALL_1: usize = 28;
+const CALL_2: usize = 29;
+const ASSERT_EQ: usize = 30;
+
+/// Aux constraint identifiers
+const A_M_PRIME: Range<usize> = range(0, 4);
+const V_M_PRIME: Range<usize> = range(4, 4);
+const P_M: Range<usize> = range(8, 4);
+const A_RC_PRIME: Range<usize> = range(12, 3);
+const P_RC: Range<usize> = range(15, 3);
 
 const TWO: Felt = Felt::new(2);
 
@@ -123,10 +133,9 @@ impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
     fn evaluate_opcode_constraints(&mut self, frame: &MainEvaluationFrame<E>) {
         let curr = frame.current();
         let one: E = Felt::ONE.into();
-        let mul = curr.op0() * curr.op1();
-
-        self[MUL] = curr.f_res_add() * (curr.op0() + curr.op1())
-            + curr.f_res_mul() * mul
+        self[MUL1] = curr.mul() - (curr.op0() * curr.op1());
+        self[MUL2] = curr.f_res_add() * (curr.op0() + curr.op1())
+            + curr.f_res_mul() * curr.mul()
             + (one - curr.f_res_add() - curr.f_res_mul() - curr.f_pc_jnz()) * curr.op1()
             - (one - curr.f_pc_jnz()) * curr.res();
         self[CALL_1] = curr.f_opc_call() * (curr.dst() - curr.fp());
@@ -146,28 +155,29 @@ where
         aux_frame: &AuxEvaluationFrame<F>,
         aux_rand_elements: &AuxTraceRandElements<F>,
     ) {
-        // TODO: Don't hardcode width and offset values
-
         let curr = main_frame.segment();
         let aux = aux_frame.segment();
-        for i in 0..4 {
-            let random_elements = aux_rand_elements.get_segment_elements(0);
-            let z = random_elements[0];
-            let alpha = random_elements[1];
 
-            // Continuity constraint
-            self[i] = (aux.a_m_prime(i + 1) - aux.a_m_prime(i))
+        let random_elements = aux_rand_elements.get_segment_elements(0);
+        let z = random_elements[0];
+        let alpha = random_elements[1];
+
+        // Continuity constraint
+        for (i, n) in A_M_PRIME.enumerate() {
+            self[n] = (aux.a_m_prime(i + 1) - aux.a_m_prime(i))
                 * (aux.a_m_prime(i + 1) - aux.a_m_prime(i) - F::ONE);
-
-            // Single-valued constraint
-            self[i + 4] = (aux.v_m_prime(i + 1) - aux.v_m_prime(i))
+        }
+        // Single-valued constraint
+        for (i, n) in V_M_PRIME.enumerate() {
+            self[n] = (aux.v_m_prime(i + 1) - aux.v_m_prime(i))
                 * (aux.a_m_prime(i + 1) - aux.a_m_prime(i) - F::ONE);
-
-            // Cumulative product step
-            let a_m: F = curr.a_m(i).into();
-            let v_m: F = curr.v_m(i).into();
-            self[i + 8] = (z - (aux.a_m_prime(i) + alpha * aux.v_m_prime(i))) * aux.p_m(i + 1)
-                - (z - (a_m + alpha * v_m)) * aux.p_m(i)
+        }
+        // Cumulative product step
+        for (i, n) in P_M.enumerate() {
+            let a_m: F = curr.a_m(i + 1).into();
+            let v_m: F = curr.v_m(i + 1).into();
+            self[n] = (z - (aux.a_m_prime(i + 1) + alpha * aux.v_m_prime(i + 1))) * aux.p_m(i + 1)
+                - (z - (a_m + alpha * v_m)) * aux.p_m(i);
         }
     }
 
@@ -179,17 +189,19 @@ where
     ) {
         let curr = main_frame.segment();
         let aux = aux_frame.segment();
-        for i in 0..4 {
-            let random_elements = aux_rand_elements.get_segment_elements(1);
-            let z = random_elements[0];
 
-            // Continuity constraint
-            self[i + 12] = (aux.a_rc_prime(i + 1) - aux.a_rc_prime(i))
+        let random_elements = aux_rand_elements.get_segment_elements(1);
+        let z = random_elements[0];
+
+        // Continuity constraint
+        for (i, n) in A_RC_PRIME.enumerate() {
+            self[n] = (aux.a_rc_prime(i + 1) - aux.a_rc_prime(i))
                 * (aux.a_rc_prime(i + 1) - aux.a_rc_prime(i) - F::ONE);
-
-            // Cumulative product step
-            self[i + 15] =
-                (z - aux.a_rc_prime(i)) * aux.p_rc(i + 1) - (z - curr.a_rc(i).into()) * aux.p_rc(i)
+        }
+        // Cumulative product step
+        for (i, n) in P_RC.enumerate() {
+            self[n] = (z - aux.a_rc_prime(i + 1)) * aux.p_rc(i + 1)
+                - (z - curr.a_rc(i + 1).into()) * aux.p_rc(i)
         }
     }
 }

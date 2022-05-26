@@ -4,7 +4,7 @@ use giza_core::{Felt, StarkField, Word};
 
 use pyo3::conversion::{FromPyObject, ToPyObject};
 use pyo3::prelude::*;
-use pyo3::types::{IntoPyDict, PyDict};
+use pyo3::types::PyDict;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -129,8 +129,7 @@ impl ToPyObject for Memory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runner::RegisterState;
-    use giza_core::Felt;
+    use giza_core::{Felt, RegisterState};
 
     #[test]
     fn test_hint_execution() {

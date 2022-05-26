@@ -1,6 +1,6 @@
 // Modified from https://github.com/o1-labs/proof-systems
 
-use super::Felt;
+use super::{Felt, FieldElement};
 use crate::flags::*;
 
 mod helpers;
@@ -11,8 +11,8 @@ pub use helpers::FieldHelpers;
 pub struct Word(Felt);
 
 /// Returns an offset of 16 bits to its biased representation in the interval `[-2^15,2^15)` as a field element
-fn bias(offset: Felt) -> Felt {
-    offset - Felt::from(2u16.pow(15u32)) // -2^15 + sum_(i=0..15) b_i * 2^i
+pub fn bias<E: FieldElement>(offset: E) -> E {
+    offset - E::from(2u16.pow(15u32)) // -2^15 + sum_(i=0..15) b_i * 2^i
 }
 
 impl Word {

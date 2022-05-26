@@ -102,7 +102,7 @@ impl<'a, E: FieldElement> MainFrameSegment<'a, E> {
             DataSegment::MemoryAddress => MEM_A_TRACE_OFFSET,
             DataSegment::MemoryValues => MEM_V_TRACE_OFFSET,
             DataSegment::Offsets => OFF_X_TRACE_OFFSET,
-            DataSegment::TempValues => TX_TRACE_OFFSET,
+            DataSegment::TempValues => DERIVED_TRACE_OFFSET,
         };
         self.table.get_row(self.row_start)[offset + pos]
     }
@@ -160,12 +160,15 @@ impl<'a, E: FieldElement + From<Felt>> MainFrameSegment<'a, E> {
     pub fn inst_size(&self) -> E {
         self.f_op1_val() + Felt::ONE.into()
     }
-    /// Constraint auxiliary values
+    /// Derived trace values
     pub fn t0(&self) -> E {
         self.get(0, DataSegment::TempValues)
     }
     pub fn t1(&self) -> E {
         self.get(1, DataSegment::TempValues)
+    }
+    pub fn mul(&self) -> E {
+        self.get(2, DataSegment::TempValues)
     }
     /// Virtual columns of memory addreses and values
     pub fn a_m(&self, idx: usize) -> E {
@@ -182,15 +185,15 @@ impl<'a, E: FieldElement + From<Felt>> MainFrameSegment<'a, E> {
 
 impl<'a, E: FieldElement + From<Felt>> OffsetDecomposition<E> for MainFrameSegment<'a, E> {
     fn off_dst(&self) -> E {
-        self.get(0, DataSegment::Offsets)
+        bias(self.get(0, DataSegment::Offsets))
     }
 
     fn off_op0(&self) -> E {
-        self.get(1, DataSegment::Offsets)
+        bias(self.get(1, DataSegment::Offsets))
     }
 
     fn off_op1(&self) -> E {
-        self.get(2, DataSegment::Offsets)
+        bias(self.get(2, DataSegment::Offsets))
     }
 }
 
@@ -214,7 +217,6 @@ impl<'a, E: FieldElement + From<Felt>> FlagDecomposition<E> for MainFrameSegment
 #[derive(Debug, Clone)]
 pub struct AuxEvaluationFrame<E: FieldElement> {
     table: Table<E>, // row-major indexing
-    offset: usize,
 }
 
 impl<E: FieldElement> EvaluationFrame<E> for AuxEvaluationFrame<E> {
@@ -226,12 +228,11 @@ impl<E: FieldElement> EvaluationFrame<E> for AuxEvaluationFrame<E> {
         let num_cols = air.trace_layout().aux_trace_width();
         AuxEvaluationFrame {
             table: Table::new(num_rows, num_cols),
-            offset: 0,
         }
     }
 
     fn from_table(table: Table<E>) -> Self {
-        Self { table, offset: 0 }
+        Self { table }
     }
 
     // ROW MUTATORS
@@ -303,7 +304,7 @@ impl<'a, E: FieldElement> AuxFrameSegment<'a, E> {
 
     /// Permutation range check
     pub fn a_rc_prime(&self, idx: usize) -> E {
-        self.get_virtual(idx, A_RC_PRIME_OFFSET, A_RC_PRIME_OFFSET)
+        self.get_virtual(idx, A_RC_PRIME_OFFSET, A_RC_PRIME_WIDTH)
     }
     pub fn p_rc(&self, idx: usize) -> E {
         self.get_virtual(idx, P_RC_OFFSET, P_RC_WIDTH)

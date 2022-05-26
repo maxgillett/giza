@@ -1,8 +1,10 @@
 #![feature(generic_associated_types)]
 
 use giza_core::{
-    ExtensionOf, Felt, FieldElement, MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET, P_M_OFFSET,
+    ExtensionOf, Felt, FieldElement, RegisterState, Word, A_RC_PRIME_FIRST, A_RC_PRIME_LAST,
+    MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET, P_M_LAST,
 };
+
 use winter_air::{
     Air, AirContext, Assertion, AuxTraceRandElements, ProofOptions as WinterProofOptions,
     TraceInfo, TransitionConstraintDegree,
@@ -26,13 +28,9 @@ pub use frame::{AuxEvaluationFrame, MainEvaluationFrame};
 // PROCESSOR AIR
 // ================================================================================================
 
-/// TODO: add docs
 pub struct ProcessorAir {
     context: AirContext<Felt>,
-    pc_init: Felt,
-    ap_init: Felt,
-    pc_fin: Felt,
-    ap_fin: Felt,
+    pub_inputs: PublicInputs,
 }
 
 impl Air for ProcessorAir {
@@ -57,7 +55,8 @@ impl Air for ProcessorAir {
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(3)); // TODO: Add another trace column for MUL to reduce this to 2
+        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
         main_degrees.push(TransitionConstraintDegree::new(2));
@@ -77,39 +76,40 @@ impl Air for ProcessorAir {
             TransitionConstraintDegree::new(2),
             TransitionConstraintDegree::new(2),
             // Range check constraints
-            //TransitionConstraintDegree::new(2),
-            //TransitionConstraintDegree::new(2),
-            //TransitionConstraintDegree::new(2),
-            //TransitionConstraintDegree::new(2),
-            //TransitionConstraintDegree::new(2),
-            //TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2),
         ];
 
+        let mut transition_exemptions = vec![];
+        transition_exemptions.extend(vec![
+            trace_info.length() - pub_inputs.num_steps + 1;
+            main_degrees.len()
+        ]);
+        transition_exemptions.extend(vec![trace_info.length() - 1; aux_degrees.len()]);
+
+        let mut context =
+            AirContext::new_multi_segment(trace_info, main_degrees, aux_degrees, 4, 3, options);
+        context.set_transition_exemptions(transition_exemptions);
+
         Self {
-            context: AirContext::new_multi_segment(
-                trace_info,
-                main_degrees,
-                aux_degrees,
-                4,
-                1,
-                options,
-            ),
-            pc_init: pub_inputs.pc_init,
-            ap_init: pub_inputs.ap_init,
-            pc_fin: pub_inputs.pc_fin,
-            ap_fin: pub_inputs.ap_fin,
+            context,
+            pub_inputs,
         }
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Felt>> {
-        let last_step = self.trace_length() - 1;
+        let last_step = self.pub_inputs.num_steps - 1;
         vec![
-            // pc assertions
-            Assertion::single(MEM_A_TRACE_OFFSET, 0, self.pc_init),
-            Assertion::single(MEM_A_TRACE_OFFSET, last_step, self.pc_fin),
-            // ap assertions
-            Assertion::single(MEM_P_TRACE_OFFSET, 0, self.ap_init),
-            Assertion::single(MEM_P_TRACE_OFFSET, last_step, self.ap_fin),
+            // Initial and final 'pc' register
+            Assertion::single(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.init.pc),
+            Assertion::single(MEM_A_TRACE_OFFSET, last_step, self.pub_inputs.fin.pc),
+            // Initial and final 'ap' register
+            Assertion::single(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.init.ap),
+            Assertion::single(MEM_P_TRACE_OFFSET, last_step, self.pub_inputs.fin.ap),
         ]
     }
 
@@ -117,11 +117,28 @@ impl Air for ProcessorAir {
         &self,
         aux_rand_elements: &AuxTraceRandElements<E>,
     ) -> Vec<Assertion<E>> {
-        // TODO: Modify assertions to constrain public memory
-        // TODO: Modify assertions to constrain rc_min and rc_max
-        // TODO: Abstract away specific trace layout (i.e. P_M_OFFSET + 3)
         let last_step = self.trace_length() - 1;
-        vec![Assertion::single(P_M_OFFSET + 3, last_step, E::ONE)]
+        let random_elements = aux_rand_elements.get_segment_elements(0);
+        let z = random_elements[0];
+        let alpha = random_elements[1];
+        let num = z.exp((self.pub_inputs.mem.len() as u64).into());
+        let den = self
+            .pub_inputs
+            .mem
+            .iter()
+            .enumerate()
+            .map(|(a, v)| z - (E::from(a as u64) + alpha * E::from(v.unwrap().word())))
+            .reduce(|a, b| a * b)
+            .unwrap();
+
+        vec![
+            // Public memory
+            Assertion::single(P_M_LAST, last_step, num / den),
+            // Minimum range check value
+            Assertion::single(A_RC_PRIME_FIRST, 0, E::from(self.pub_inputs.rc_min)),
+            // Maximum range check value
+            Assertion::single(A_RC_PRIME_LAST, last_step, E::from(self.pub_inputs.rc_max)),
+        ]
     }
 
     fn evaluate_transition<E: FieldElement + From<Felt>>(
@@ -148,7 +165,7 @@ impl Air for ProcessorAir {
         result: &mut [F],
     ) {
         result.evaluate_memory_constraints(main_frame, aux_frame, aux_rand_elements);
-        //result.evaluate_range_check_constraints(main_frame, aux_frame, aux_rand_elements);
+        result.evaluate_range_check_constraints(main_frame, aux_frame, aux_rand_elements);
     }
 
     fn context(&self) -> &AirContext<Felt> {
@@ -161,28 +178,39 @@ impl Air for ProcessorAir {
 
 #[derive(Debug)]
 pub struct PublicInputs {
-    pc_init: Felt,
-    ap_init: Felt,
-    pc_fin: Felt,
-    ap_fin: Felt,
+    init: RegisterState,    // initial register state
+    fin: RegisterState,     // final register state
+    rc_min: u16,            // minimum range check value (0 < rc_min < rc_max < 2^16)
+    rc_max: u16,            // maximum range check value
+    mem: Vec<Option<Word>>, // public memory
+    num_steps: usize,       // number of execution steps
 }
 
 impl PublicInputs {
-    pub fn new(pc: Vec<Felt>, ap: Vec<Felt>) -> Self {
+    pub fn new(
+        init: RegisterState,
+        fin: RegisterState,
+        rc_min: u16,
+        rc_max: u16,
+        mem: Vec<Option<Word>>,
+        num_steps: usize,
+    ) -> Self {
         Self {
-            pc_init: pc[0],
-            ap_init: ap[0],
-            pc_fin: pc[1],
-            ap_fin: ap[1],
+            init,
+            fin,
+            rc_min,
+            rc_max,
+            mem,
+            num_steps,
         }
     }
 }
 
 impl Serializable for PublicInputs {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
-        target.write(self.ap_init);
-        target.write(self.ap_init);
-        target.write(self.pc_fin);
-        target.write(self.ap_fin);
+        target.write(self.init.pc);
+        target.write(self.init.ap);
+        target.write(self.fin.pc);
+        target.write(self.fin.ap);
     }
 }
