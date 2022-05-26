@@ -12,8 +12,7 @@ fn main() {
     //      serialize_word(x)
     //      serialize_word(y)
     //      serialize_word(z)
-    //      __end__:
-    //      jmp __end__
+    //      return ()
     //  end
     //  */
     let instrs: Vec<Felt> = vec![
@@ -56,7 +55,7 @@ fn main() {
     mem.write_pub(Felt::from(23u32), Felt::from(44u32)); // end of program
 
     // run the program to create an execution trace
-    let mut program = Program::new(&mut mem, 5, 24, None);
+    let mut program = Program::new(&mut mem, 5, 24);
     let trace = program.execute().unwrap();
 
     // build the public inputs

@@ -17,27 +17,17 @@ pub use prover::StarkProof;
 pub fn prove_trace(
     trace: ExecutionTrace,
     options: &ProofOptions,
-) -> Result<StarkProof, ExecutionError> {
+) -> Result<(StarkProof, PublicInputs), ExecutionError> {
     let prover = ExecutionProver::new(options.clone());
+    let public_inputs = prover.get_pub_inputs(&trace);
     let proof = prover.prove(trace).map_err(ExecutionError::ProverError)?;
-    Ok(proof)
-}
-
-pub fn prove(
-    trace: ExecutionTrace,
-    options: &ProofOptions,
-) -> Result<StarkProof, ExecutionError> {
-    // generate STARK proof
-    let prover = ExecutionProver::new(options.clone());
-    let proof = prover.prove(trace).map_err(ExecutionError::ProverError)?;
-
-    Ok(proof)
+    Ok((proof, public_inputs))
 }
 
 // PROVER
 // ================================================================================================
 
-struct ExecutionProver {
+pub struct ExecutionProver {
     options: ProofOptions,
 }
 

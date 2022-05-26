@@ -1,12 +1,9 @@
-// use opts::forge::{Dependency, Opts, Subcommands};
 pub mod cmd;
 mod utils;
 
-use clap::{Parser, Subcommand};
 use crate::utils::Cmd;
-use cmd::prove::{
-    ProveArgs
-};
+use clap::{Parser, Subcommand};
+use cmd::prove::ProveArgs;
 
 #[derive(Debug, Parser)]
 #[clap(name = "giza")]
@@ -18,14 +15,14 @@ pub struct Opts {
 #[derive(Debug, Subcommand)]
 #[allow(clippy::large_enum_variant)]
 pub enum Subcommands {
-    Prove(ProveArgs)
+    Prove(ProveArgs),
 }
 
 fn main() {
     let opts = Opts::parse();
     match opts.sub {
         Subcommands::Prove(cmd) => {
-            cmd.run();
+            cmd.run().unwrap();
         }
     }
 

@@ -1,61 +1,37 @@
 // Modified from https://github.com/o1-labs/proof-systems
 
 use crate::errors::ExecutionError;
-use crate::hints::{ExecutionEffect as HintExecutionEffect, HintManager};
 use crate::memory::Memory;
 use crate::trace::ExecutionTrace;
 use giza_core::{flags::*, *};
 
-//use std::convert::TryInto;
+#[cfg(feature = "hints")]
+use crate::hints::{ExecutionEffect as HintExecutionEffect, HintManager};
 
 /// A data structure to store a current step of computation
 pub struct Step<'a> {
     pub mem: &'a mut Memory,
     pub curr: RegisterState,
     pub next: Option<RegisterState>,
+    #[cfg(feature = "hints")]
     hints: Option<&'a HintManager>,
 }
 
 impl<'a> Step<'a> {
     /// Creates a new execution step from a step index, a word, and current pointers
-    pub fn new(
-        mem: &'a mut Memory,
-        hints: Option<&'a HintManager>,
-        ptrs: RegisterState,
-    ) -> Step<'a> {
+    pub fn new(mem: &'a mut Memory, ptrs: RegisterState) -> Step<'a> {
         Step {
             mem,
             curr: ptrs,
             next: None,
-            hints,
-        }
-    }
-
-    /// This function returns the current word instruction being executed
-    fn inst(&mut self) -> Word {
-        Word::new(self.mem.read(self.curr.pc).expect("pc points to None cell"))
-    }
-
-    fn apply_hint_effects(&mut self, res: HintExecutionEffect) {
-        self.curr.pc = res.pc;
-        self.curr.ap = res.ap;
-        self.curr.fp = res.fp;
-        if let Some(updates) = res.mem_updates {
-            for (addr, elem) in updates.0.iter() {
-                self.mem.write(Felt::from(*addr), elem.word());
-            }
         }
     }
 
     /// Executes a step from the current registers and returns the instruction state
-    pub fn execute(&mut self) -> InstructionState {
+    pub fn execute(&mut self, write: bool) -> InstructionState {
         // Execute hints and apply changes
-        if let Some(manager) = self.hints {
-            for hint in manager.get_hints(self.curr.pc).into_iter().flatten() {
-                let changes = hint.exec(&self).unwrap();
-                self.apply_hint_effects(changes);
-            }
-        }
+        #[cfg(feature = "hints")]
+        self.execute_hints();
 
         // Execute instruction
         let (op0_addr, mut op0) = self.set_op0();
@@ -64,7 +40,7 @@ impl<'a> Step<'a> {
         let (dst_addr, mut dst) = self.set_dst();
         let next_pc = self.next_pc(size, res, dst, op1);
         let (next_ap, next_fp, op0_update, op1_update, res_update, dst_update) =
-            self.next_apfp(size, res, dst, dst_addr, op1_addr);
+            self.next_apfp(size, res, dst, dst_addr, op1_addr, write);
         if op0_update.is_some() {
             op0 = op0_update;
         }
@@ -93,6 +69,38 @@ impl<'a> Step<'a> {
             op0_addr,
             op1_addr,
         )
+    }
+
+    #[cfg(feature = "hints")]
+    fn set_hint_manager(&mut self, hints: &'a HintManager) {
+        self.hints = hints;
+    }
+
+    #[cfg(feature = "hints")]
+    fn execute_hints(&mut self) {
+        if let Some(manager) = self.hints {
+            for hint in manager.get_hints(self.curr.pc).into_iter().flatten() {
+                let changes = hint.exec(&self).unwrap();
+                self.apply_hint_effects(changes);
+            }
+        }
+    }
+
+    #[cfg(feature = "hints")]
+    fn apply_hint_effects(&mut self, res: HintExecutionEffect) {
+        self.curr.pc = res.pc;
+        self.curr.ap = res.ap;
+        self.curr.fp = res.fp;
+        if let Some(updates) = res.mem_updates {
+            for (addr, elem) in updates.0.iter() {
+                self.mem.write(Felt::from(*addr), elem.word());
+            }
+        }
+    }
+
+    /// This function returns the current word instruction being executed
+    fn inst(&mut self) -> Word {
+        Word::new(self.mem.read(self.curr.pc).expect("pc points to None cell"))
     }
 
     /// This function computes the first operand address.
@@ -232,6 +240,7 @@ impl<'a> Step<'a> {
         dst: Option<Felt>,
         dst_addr: Felt,
         op1_addr: Felt,
+        write: bool,
     ) -> (
         Option<Felt>,
         Option<Felt>,
@@ -249,9 +258,12 @@ impl<'a> Step<'a> {
         if self.inst().opcode() == OPC_CALL {
             /*1*/
             // "call" instruction
-            self.mem.write(self.curr.ap, self.curr.fp); // Save current fp
-            self.mem
-                .write(self.curr.ap + Felt::from(1u8), self.curr.pc + size); // Save next instruction
+            if write {
+                self.mem.write(self.curr.ap, self.curr.fp); // Save current fp
+                self.mem
+                    .write(self.curr.ap + Felt::from(1u8), self.curr.pc + size);
+                // Save next instruction
+            }
 
             dst_update = self.mem.read(self.curr.ap);
             op0_update = self.mem.read(self.curr.ap + Felt::from(1u8));
@@ -298,14 +310,18 @@ impl<'a> Step<'a> {
                     // case where res can be None is when res = op1 and thus res_dir = op1_addr
                     if res.is_none() {
                         // res = dst
-                        self.mem
-                            .write(op1_addr, dst.expect("None dst after OPC_AEQ"));
+                        if write {
+                            self.mem
+                                .write(op1_addr, dst.expect("None dst after OPC_AEQ"));
+                        }
                         op1_update = self.mem.read(op1_addr);
                         res_update = self.mem.read(op1_addr);
                     } else {
                         // dst = res
-                        self.mem
-                            .write(dst_addr, res.expect("None res after OPC_AEQ"));
+                        if write {
+                            self.mem
+                                .write(dst_addr, res.expect("None res after OPC_AEQ"));
+                        }
                         dst_update = self.mem.read(dst_addr);
                     }
                     next_fp = Some(self.curr.fp); // no modification on fp
@@ -335,7 +351,7 @@ pub struct State {
 }
 
 impl State {
-    fn new(init_trace_len: usize) -> Self {
+    pub fn new(init_trace_len: usize) -> Self {
         let mut flags: Vec<Vec<Felt>> = Vec::with_capacity(FLAG_TRACE_WIDTH);
         let mut res: Vec<Vec<Felt>> = Vec::with_capacity(RES_TRACE_WIDTH);
         let mut mem_p: Vec<Vec<Felt>> = Vec::with_capacity(MEM_P_TRACE_WIDTH);
@@ -376,13 +392,13 @@ impl State {
         }
     }
 
-    fn set_register_state(&mut self, step: usize, s: RegisterState) {
+    pub fn set_register_state(&mut self, step: usize, s: RegisterState) {
         self.mem_a[0][step] = s.pc;
         self.mem_p[0][step] = s.ap;
         self.mem_p[1][step] = s.fp;
     }
 
-    fn set_instruction_state(&mut self, step: usize, s: InstructionState) {
+    pub fn set_instruction_state(&mut self, step: usize, s: InstructionState) {
         // Flags
         let flags = s.inst.flags();
         for i in 0..=15 {
@@ -423,11 +439,13 @@ pub struct Program<'a> {
     /// final register state
     fin: RegisterState,
     /// hints
+    #[cfg(feature = "hints")]
     hints: Option<HintManager>,
 }
 
 impl<'a> Program<'a> {
     /// Creates an execution from the public information (memory and initial pointers)
+    #[cfg(feature = "hints")]
     pub fn new(mem: &mut Memory, pc: u64, ap: u64, hints: Option<HintManager>) -> Program {
         Program {
             steps: 0,
@@ -435,6 +453,16 @@ impl<'a> Program<'a> {
             init: RegisterState::new(Felt::from(pc), Felt::from(ap), Felt::from(ap)),
             fin: RegisterState::new(Felt::from(0u8), Felt::from(0u8), Felt::from(0u8)),
             hints,
+        }
+    }
+
+    #[cfg(not(feature = "hints"))]
+    pub fn new(mem: &mut Memory, pc: u64, ap: u64) -> Program {
+        Program {
+            steps: 0,
+            mem,
+            init: RegisterState::new(Felt::from(pc), Felt::from(ap), Felt::from(ap)),
+            fin: RegisterState::new(Felt::from(0u8), Felt::from(0u8), Felt::from(0u8)),
         }
     }
 
@@ -460,11 +488,14 @@ impl<'a> Program<'a> {
         // keep executing steps until the end is reached
         while !end {
             // create current step of computation
-            let mut step = Step::new(self.mem, self.hints.as_ref(), next);
+            let mut step = Step::new(self.mem, next);
             curr = step.curr;
 
+            #[cfg(feature = "hints")]
+            step.set_hint_manager(self.hints.as_ref());
+
             // execute current step and save state
-            let inst_state = step.execute();
+            let inst_state = step.execute(true);
             state.set_register_state(n, curr);
             state.set_instruction_state(n, inst_state);
 

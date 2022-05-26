@@ -90,6 +90,7 @@ impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
         let fp = curr.fp();
         let pc = curr.pc();
         let one: E = Felt::ONE.into();
+
         self[DST_ADDR] =
             curr.f_dst_fp() * fp + (one - curr.f_dst_fp()) * ap + curr.off_dst() - curr.dst_addr();
         self[OP0_ADDR] =

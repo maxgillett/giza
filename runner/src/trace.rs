@@ -1,12 +1,12 @@
+use crate::cairo_interop::{read_memory_bin, read_trace_bin};
 use crate::memory::Memory;
-use crate::runner::State;
+use crate::runner::{State, Step};
 use giza_core::{
     Felt, FieldElement, StarkField, Word, MEM_A_TRACE_RANGE, MEM_A_TRACE_WIDTH, MEM_V_TRACE_RANGE,
     OFF_X_TRACE_RANGE, OFF_X_TRACE_WIDTH, TRACE_WIDTH,
 };
-use winterfell::{Matrix, Trace, TraceLayout};
 use std::path::PathBuf;
-use crate::cairo_interop::{read_trace_bin, read_memory_bin};
+use winterfell::{Matrix, Trace, TraceLayout};
 
 pub struct ExecutionTrace {
     layout: TraceLayout,
@@ -16,70 +16,6 @@ pub struct ExecutionTrace {
     pub rc_min: u16,
     pub rc_max: u16,
     pub num_steps: usize,
-}
-
-
-/*
-Pop this in winterfell/math/src/field/f128/mod.rs
-
-impl From<&[u8; 32]> for BaseElement {
-    /// Converts a 256-bit value into a field element. 
-    /// TODO: This is not functional - it just truncates it to fit the f128 API.
-    fn from(value: &[u8; 32]) -> Self {
-        let mut buf: [u8; 16] = Default::default();
-        buf.copy_from_slice(&value[0..16]);
-        return BaseElement::new(u128::from_le_bytes(buf));
-    }
-}
-*/
-
-pub fn load_trace_from_file(trace_path: PathBuf, memory_path: PathBuf) -> ExecutionTrace {
-    // Load memory.bin.
-    let memory = read_memory_bin(memory_path);
-    
-    // Load trace.bin.
-    let trace_elements = read_trace_bin(trace_path);
-    println!("trace_elements.len() = {}", trace_elements.len());
-
-    // Pad the trace to a power of 2.
-    let mut trace_elements_padded = trace_elements.clone();
-    let desired_len = trace_elements.len().next_power_of_two();
-
-    for i in 0..(desired_len - trace_elements.len()) {
-        trace_elements_padded.push(
-            vec![ Felt::new(0), Felt::new(0), Felt::new(0) ]
-        );
-    }
-
-    println!("trace_elements_padded.len() = {}", trace_elements_padded.len());
-
-    // Now rearrange for the matrix layout.
-    // let ap = trace_elements_padded
-    //     .iter()
-    //     .map(|x| x[0])
-    //     .collect::<Vec<Felt>>();
-    // let fp = trace_elements_padded
-    //     .iter()
-    //     .map(|x| x[1])
-    //     .collect::<Vec<Felt>>();
-    // let pc = trace_elements_padded
-    //     .iter()
-    //     .map(|x| x[2])
-    //     .collect::<Vec<Felt>>();
-    // let trace_matrix: Vec<Vec<Felt>> = vec![ ap, fp, pc ];
-    
-    ExecutionTrace {
-        layout: TraceLayout::new(
-            TRACE_WIDTH,
-            [12], // aux_segment widths
-            [2],  // aux_segment rands
-        ),
-        meta: Vec::new(),
-        // TODO: the trace format used by Cairo is different to the one used
-        // by Giza.
-        trace: Matrix::new(vec![]),
-        public_mem: memory,
-    }
 }
 
 /// A virtual column is composed of one or more subcolumns.
@@ -246,6 +182,25 @@ impl ExecutionTrace {
             rc_max,
             num_steps,
         }
+    }
+
+    /// Reconstructs the execution trace from file
+    pub fn from_file(trace_path: PathBuf, memory_path: PathBuf) -> ExecutionTrace {
+        // TODO: Denote public memory region (set codelen)
+        let mut mem = read_memory_bin(memory_path);
+        let registers = read_trace_bin(trace_path);
+        let num_steps = registers.len();
+
+        // Reconstruct state using registers and memory
+        let mut state = State::new(mem.size() as usize);
+        for (n, ptrs) in registers.into_iter().enumerate() {
+            let mut step = Step::new(&mut mem, ptrs);
+            let inst_state = step.execute(false);
+            state.set_register_state(n, ptrs);
+            state.set_instruction_state(n, inst_state);
+        }
+
+        Self::new(num_steps, &mut state, &mem)
     }
 
     /// Return the public memory

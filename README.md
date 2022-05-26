@@ -16,3 +16,9 @@ To verify the execution of the program found in `examples/src/main.rs`, you will
 - Clone the branch of the Winterfell fork found [here](https://github.com/maxgillett/winterfell/tree/constraint_divisors) into the parent directory of this repository.
 - Use nightly Rust
 - Run `cargo run --release`
+
+### 
+There are two methods to 
+1. You can use the provided 
+
+`cargo run --release --bin giza prove --trace=tmp/trace.bin --memory=tmp/memory.bin --output=tmp/output.bin`

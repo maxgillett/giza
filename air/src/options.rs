@@ -26,6 +26,8 @@ impl ProofOptions {
         ))
     }
 
+    // TODO: Use parameters appropriate for 252-bit field (see ethSTARK paper,
+    // sections 5.10.1 and 5.10.2)
     pub fn with_96_bit_security() -> Self {
         Self(WinterProofOptions::new(
             27,
@@ -33,18 +35,6 @@ impl ProofOptions {
             16,
             HashFunction::Blake3_192,
             FieldExtension::None,
-            8,
-            256,
-        ))
-    }
-
-    pub fn with_128_bit_security() -> Self {
-        Self(WinterProofOptions::new(
-            27,
-            16,
-            21,
-            HashFunction::Blake3_256,
-            FieldExtension::Cubic,
             8,
             256,
         ))
