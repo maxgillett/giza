@@ -33,6 +33,8 @@ impl<'a> Step<'a> {
         #[cfg(feature = "hints")]
         self.execute_hints();
         
+        println!("pc={} ap={} fp={}", self.curr.pc, self.curr.ap, self.curr.fp);
+
         // Execute instruction
         let (op0_addr, mut op0) = self.set_op0();
         let (op1_addr, mut op1, size) = self.set_op1(op0);
