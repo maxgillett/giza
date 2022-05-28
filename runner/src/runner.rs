@@ -32,7 +32,7 @@ impl<'a> Step<'a> {
         // Execute hints and apply changes
         #[cfg(feature = "hints")]
         self.execute_hints();
-
+        
         // Execute instruction
         let (op0_addr, mut op0) = self.set_op0();
         let (op1_addr, mut op1, size) = self.set_op1(op0);
@@ -259,10 +259,9 @@ impl<'a> Step<'a> {
             /*1*/
             // "call" instruction
             if write {
-                self.mem.write(self.curr.ap, self.curr.fp); // Save current fp
-                self.mem
-                    .write(self.curr.ap + Felt::from(1u8), self.curr.pc + size);
                 // Save next instruction
+                self.mem.write(self.curr.ap, self.curr.pc + size);
+                self.mem.write(self.curr.ap + Felt::from(1u8), self.curr.fp); // Save current fp
             }
 
             dst_update = self.mem.read(self.curr.ap);
