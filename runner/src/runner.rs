@@ -262,6 +262,11 @@ impl<'a> Step<'a> {
                 // Save next instruction
                 self.mem.write(self.curr.ap, self.curr.pc + size);
                 self.mem.write(self.curr.ap + Felt::from(1u8), self.curr.fp); // Save current fp
+            } else {
+                let expected_a = self.mem.read(self.curr.ap).unwrap();
+                let expected_b = self.mem.read(self.curr.ap + Felt::from(1u8)).unwrap();
+                assert!(expected_a == self.curr.pc + size);
+                assert!(expected_b == self.curr.fp);
             }
 
             dst_update = self.mem.read(self.curr.ap);
