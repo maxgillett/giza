@@ -12,8 +12,7 @@ fn main() {
     //      serialize_word(x)
     //      serialize_word(y)
     //      serialize_word(z)
-    //      __end__:
-    //      jmp __end__
+    //      return ()
     //  end
     //  */
     let instrs: Vec<Felt> = vec![
@@ -38,28 +37,18 @@ fn main() {
         -Felt::from(17u64),
         Felt::from(0x208b7fff7fff7ffeu64),
     ];
-
     let mut mem = Memory::new(instrs);
     mem.write_pub(Felt::from(21u32), Felt::from(41u32)); // beginning of output
     mem.write_pub(Felt::from(22u32), Felt::from(44u32)); // end of output
     mem.write_pub(Felt::from(23u32), Felt::from(44u32)); // end of program
 
     // run the program to create an execution trace
-    let mut program = Program::new(&mut mem, 5, 24, None);
+    let mut program = Program::new(&mut mem, 5, 24);
     let trace = program.execute().unwrap();
-
-    // build the public inputs
-    let num_steps = program.get_steps();
-    let rc_min = trace.rc_min;
-    let rc_max = trace.rc_max;
-    let init = RegisterState::new(5u64, 24u64, 24u64);
-    let fin = RegisterState::new(20u64, 41u64, 41u64);
-    let pub_mem = trace.public_mem();
-    let pub_inputs = PublicInputs::new(init, fin, rc_min, rc_max, pub_mem, num_steps);
 
     // generate the proof of execution
     let proof_options = ProofOptions::with_96_bit_security();
-    let proof = prover::prove_trace(trace, &proof_options).unwrap();
+    let (proof, pub_inputs) = prover::prove_trace(trace, &proof_options).unwrap();
     let proof_bytes = proof.to_bytes();
     println!("Proof size: {:.1} KB", proof_bytes.len() as f64 / 1024f64);
 

@@ -11,9 +11,15 @@ doctest = false
 [dependencies]
 air = { package = "giza-air", path = "../air", version = "0.1", default-features = false }
 giza_core = { package = "giza-core", path = "../core", version = "0.1", default-features = false }
-winterfell = { package = "winter-prover", path = "../../winterfell/prover", version = "0.4", default-features = false }
-
-pyo3 = { package = "pyo3", version = "0.16.3", features = ["auto-initialize"] }
+winterfell = { package = "winter-prover", path = "../../winterfell/prover", version = "0.4", features = ["concurrent"], default-features = false }
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 itertools = "0.10.3"
+hex = "0.4"
+pyo3 = { package = "pyo3", version = "0.16.3", features = ["auto-initialize"], optional = true }
+indicatif = {version = "*", features = ["rayon"]}
+#rayon = "1.5.3"
+
+[features]
+hints = ["dep:pyo3"]
+

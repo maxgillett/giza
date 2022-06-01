@@ -1,18 +1,23 @@
 [package]
-name = "examples"
+name = "giza-cli"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.57"
 
-[[bin]]
-name = "giza-examples"
-path = "src/main.rs"
-bench = false
-doctest = false
-
 [dependencies]
+clap = { version = "3.1.18", features = ["derive"] }
 air = { package = "giza-air", path = "../air", version = "0.1", default-features = false }
 prover = { package = "giza-prover", path = "../prover", version = "0.1", default-features = false }
 runner = { package = "giza-runner", path = "../runner", version = "0.1", default-features = false }
 giza_core = { package = "giza-core", path = "../core", version = "0.1", default-features = false }
 winterfell = { package = "winter-verifier", path = "../../winterfell/verifier", features = ["std"], version = "0.4", default-features = false }
+winter-utils = { package = "winter-utils", path = "../../winterfell/utils/core", version = "0.4", default-features = false }
+#zip = "0.6.2"
+serde = "1.0.137"
+#serde_json = "1.0"
+bincode = "1.3.3"
+
+[[bin]]
+name = "giza"
+path = "src/giza.rs"
+doc = false
