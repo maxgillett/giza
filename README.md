@@ -2,7 +2,7 @@
 Giza leverages the Winterfell library to prove and verify the execution of programs running on the Cairo VM.
 
 ### Remaining tasks:
-- [ ] Implement the 251-bit STARK-friendly prime field chosen by Starkware
+- [x] Implement the 251-bit STARK-friendly prime field chosen by Starkware
 - [ ] Support zero knowledge (see relevant Winterfell [issue](https://github.com/novifinancial/winterfell/issues/9))
 - [ ] Bitwise builtin constraints
 - [ ] Python hint support
@@ -12,7 +12,7 @@ Giza leverages the Winterfell library to prove and verify the execution of progr
 - [ ] Compile to WASM and test in browser
 
 ### Running the example program
-To verify the execution of the program found `examples/src/main.rs`, you will need to do the following:
-- Clone the branch of the Winterfell fork found [here](https://github.com/maxgillett/winterfell/tree/custom_evaluation_frame) into the parent directory of this repository.
+To verify the execution of the program found in `examples/src/main.rs`, you will need to do the following:
+- Clone the branch of the Winterfell fork found [here](https://github.com/maxgillett/winterfell/tree/constraint_divisors) into the parent directory of this repository.
 - Use nightly Rust
 - Run `cargo run --release`
