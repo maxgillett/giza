@@ -7,3 +7,4 @@ edition = "2018"
 winter-air = { package = "winter-air", path = "../../winterfell/air", version = "0.4", default-features = false }
 winter-utils = { package = "winter-utils", path = "../../winterfell/utils/core", version = "0.4", default-features = false }
 giza_core = { package = "giza-core", path = "../core", version = "0.1", default-features = false }
+serde = "1.0.137"

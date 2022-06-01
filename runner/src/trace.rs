@@ -5,8 +5,10 @@ use giza_core::{
     Felt, FieldElement, StarkField, Word, MEM_A_TRACE_RANGE, MEM_A_TRACE_WIDTH, MEM_V_TRACE_RANGE,
     OFF_X_TRACE_RANGE, OFF_X_TRACE_WIDTH, TRACE_WIDTH,
 };
-use std::path::PathBuf;
 use winterfell::{Matrix, Trace, TraceLayout};
+
+use indicatif::ProgressIterator;
+use std::path::PathBuf;
 
 pub struct ExecutionTrace {
     layout: TraceLayout,
@@ -110,13 +112,22 @@ impl<'a, E: FieldElement> Layouter<'a, E> {
 impl ExecutionTrace {
     /// Builds an execution trace
     pub(super) fn new(num_steps: usize, state: &mut State, memory: &Memory) -> Self {
-        // TODO: Don't hardcode index values here
         let mut t0 = vec![];
         let mut t1 = vec![];
         let mut mul = vec![];
-        for step in 0..num_steps {
-            t0.push(state.flags[9][step] * state.mem_v[1][step]); // f_pc_jnz * dst
-            t1.push(t0[step] * state.res[0][step]); // t_0 * res
+        for step in (0..num_steps).progress() {
+            // In a conditional jump instruction, we use substitute res with dst^{-1}
+            // See page 53 of the whitepaper.
+            // TODO: Don't hardcode index values here
+            let f_pc_jnz = state.flags[9][step];
+            let dst = state.mem_v[1][step];
+            let res = if f_pc_jnz != Felt::ZERO && dst != Felt::ZERO {
+                dst.inv()
+            } else {
+                state.res[0][step]
+            };
+            t0.push(f_pc_jnz * dst); // f_pc_jnz * dst
+            t1.push(t0[step] * res); // t_0 * res
             mul.push(state.mem_v[2][step] * state.mem_v[3][step]); // op0 * op1
         }
 
@@ -126,6 +137,7 @@ impl ExecutionTrace {
             .to_columns(&[MEM_A_TRACE_WIDTH])
             .iter()
             .enumerate()
+            .progress()
         {
             state.mem_a[n].extend(col);
             state.mem_v[n].extend(col);
@@ -149,7 +161,7 @@ impl ExecutionTrace {
             .map(|x| x.as_int().try_into().unwrap())
             .max()
             .unwrap();
-        for x in rc_min..rc_max {
+        for x in (rc_min..rc_max).progress() {
             if !rc_column.contains(&x.into()) {
                 rc_column.push(x.into());
             }
@@ -185,15 +197,18 @@ impl ExecutionTrace {
     }
 
     /// Reconstructs the execution trace from file
-    pub fn from_file(trace_path: PathBuf, memory_path: PathBuf) -> ExecutionTrace {
-        // TODO: Denote public memory region (set codelen)
-        let mut mem = read_memory_bin(memory_path);
+    pub fn from_file(
+        program_path: PathBuf,
+        trace_path: PathBuf,
+        memory_path: PathBuf,
+    ) -> ExecutionTrace {
+        let mut mem = read_memory_bin(memory_path, program_path);
         let registers = read_trace_bin(trace_path);
         let num_steps = registers.len();
 
         // Reconstruct state using registers and memory
         let mut state = State::new(mem.size() as usize);
-        for (n, ptrs) in registers.into_iter().enumerate() {
+        for (n, ptrs) in registers.into_iter().enumerate().progress() {
             let mut step = Step::new(&mut mem, ptrs);
             let inst_state = step.execute(false);
             state.set_register_state(n, ptrs);

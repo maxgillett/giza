@@ -1,18 +1,25 @@
 /// Code for parsing the outputs of Starkware's cairo-runner.
 /// Note the following:
 /// - Field elements are encoded in little-endian byte order.
-/// - Cairo serialises field elements as 32 bytes [1] in their file formats
-///   (based on the size of the program prime).
+/// - Cairo serializes field elements as 32 bytes (the program
+///   prime is assumed to be equal to the 252-bit Starkware prime).
 ///
 use crate::memory::Memory;
 use giza_core::{Felt, RegisterState};
+use serde::{Deserialize, Serialize};
 use std::fs::{metadata, File};
-use std::io::Read;
+use std::io::{BufReader, Read};
 use std::path::PathBuf;
+
+#[derive(Serialize, Deserialize)]
+struct CompiledProgram {
+    builtins: Vec<String>,
+    data: Vec<String>,
+    prime: String,
+}
 
 /// Parses an execution trace outputted by the cairo-runner.
 /// e.g. cairo-runner --trace_file out/trace.bin
-/// Note that the trace is not assumed to be padded to a power of 2.
 pub fn read_trace_bin(path: PathBuf) -> Vec<RegisterState> {
     let mut f = File::open(&path).expect("no file found");
     let metadata = metadata(&path).expect("unable to read metadata");
@@ -37,32 +44,39 @@ pub fn read_trace_bin(path: PathBuf) -> Vec<RegisterState> {
         ptrs.push(reg);
     }
 
-    return ptrs;
+    ptrs
 }
 
 /// Parses a memory dump outputted by the cairo-runner.
 /// e.g. cairo-runner --memory_file out/memory.bin
-pub fn read_memory_bin(path: PathBuf) -> Memory {
-    let mut f = File::open(&path).expect("no file found");
-    let metadata = metadata(&path).expect("unable to read metadata");
+pub fn read_memory_bin(mem_path: PathBuf, program_path: PathBuf) -> Memory {
+    // Read memory trace
+    let mut f = File::open(&mem_path).expect("Memory trace file not found");
+    let metadata = metadata(&mem_path).expect("Unable to read metadata");
     let length = metadata.len() as usize;
 
     // Buffer for memory accesses
     let mut address: [u8; 8] = Default::default();
     let mut value: [u8; 32] = Default::default();
 
-    let mut public_mem = Memory::new(vec![]).clone();
+    let mut mem = Memory::new(vec![]).clone();
     let mut bytes_read = 0;
     while bytes_read < length {
         bytes_read += f.read(&mut address).unwrap();
         bytes_read += f.read(&mut value).unwrap();
-        public_mem.write(
+        mem.write(
             Felt::try_from(u64::from_le_bytes(address)).unwrap(),
             Felt::try_from(value).unwrap(),
         );
     }
 
-    return public_mem;
+    // Read compiled program and set memory codelen (the length of the public memory)
+    let file = File::open(&program_path).expect("Compiled program file not found");
+    let reader = BufReader::new(file);
+    let p: CompiledProgram = serde_json::from_reader(reader).unwrap();
+    mem.set_codelen(p.data.len());
+
+    mem
 }
 
 #[cfg(test)]
@@ -77,7 +91,10 @@ mod tests {
 
     #[test]
     fn test_memory_bin() {
-        let mem = read_memory_bin(PathBuf::from("../tmp/memory.bin"));
+        let mem = read_memory_bin(
+            PathBuf::from("../tmp/memory.bin"),
+            PathBuf::from("../tmp/program.json"),
+        );
         println!("{:?}", mem.data);
     }
 }

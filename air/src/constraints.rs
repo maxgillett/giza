@@ -36,8 +36,8 @@ const NEXT_PC_1: usize = 22;
 const NEXT_PC_2: usize = 23;
 const T0: usize = 24;
 const T1: usize = 25;
-const MUL1: usize = 26;
-const MUL2: usize = 27;
+const MUL_1: usize = 26;
+const MUL_2: usize = 27;
 const CALL_1: usize = 28;
 const CALL_2: usize = 29;
 const ASSERT_EQ: usize = 30;
@@ -49,8 +49,6 @@ const P_M: Range<usize> = range(8, 4);
 const A_RC_PRIME: Range<usize> = range(12, 3);
 const P_RC: Range<usize> = range(15, 3);
 
-// TODO: Add constant to Winterfell field element implementations?
-//const TWO: Felt = Felt::new(2);
 const TWO: Felt = Felt::TWO;
 
 impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
@@ -122,13 +120,14 @@ impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
         // pc constraints
         self[NEXT_PC_1] =
             (curr.t1() - curr.f_pc_jnz()) * (next.pc() - (curr.pc() + curr.inst_size()));
-        self[NEXT_PC_2] = curr.t0() * (next.pc() - (curr.pc() + curr.op1()))
-            + (one - curr.f_pc_jnz()) * next.pc()
-            - (one - curr.f_pc_abs() - curr.f_pc_rel() - curr.f_pc_jnz())
-                * (curr.pc() + curr.inst_size())
-            + curr.f_pc_abs() * curr.res()
-            + curr.f_pc_rel() * (curr.pc() + curr.res());
-        self[NEXT_PC_2] = E::from(0u8); // FIXME: Why is this constraint not evaluating to zero?
+        // FIXME: Constraint (5) on page 53 is not evaluating to zero, so we cannot combine
+        // constraints (5) and (6) below
+        self[NEXT_PC_2] = curr.t0() * (next.pc() - (curr.pc() + curr.op1()));
+        //    + (one - curr.f_pc_jnz()) * next.pc()
+        //    - (one - curr.f_pc_abs() - curr.f_pc_rel() - curr.f_pc_jnz())
+        //        * (curr.pc() + curr.inst_size())
+        //    + curr.f_pc_abs() * curr.res()
+        //    + curr.f_pc_rel() * (curr.pc() + curr.res());
         self[T0] = curr.f_pc_jnz() * curr.dst() - curr.t0();
         self[T1] = curr.t0() * curr.res();
     }
@@ -136,8 +135,8 @@ impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
     fn evaluate_opcode_constraints(&mut self, frame: &MainEvaluationFrame<E>) {
         let curr = frame.current();
         let one: E = Felt::ONE.into();
-        self[MUL1] = curr.mul() - (curr.op0() * curr.op1());
-        self[MUL2] = curr.f_res_add() * (curr.op0() + curr.op1())
+        self[MUL_1] = curr.mul() - (curr.op0() * curr.op1());
+        self[MUL_2] = curr.f_res_add() * (curr.op0() + curr.op1())
             + curr.f_res_mul() * curr.mul()
             + (one - curr.f_res_add() - curr.f_res_mul() - curr.f_pc_jnz()) * curr.op1()
             - (one - curr.f_pc_jnz()) * curr.res();

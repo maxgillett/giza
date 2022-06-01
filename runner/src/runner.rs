@@ -122,11 +122,11 @@ impl<'a> Step<'a> {
     fn set_op1(&mut self, op0: Option<Felt>) -> (Felt, Option<Felt>, Felt) {
         let (reg, size) = match self.inst().op1_src() {
             /*0*/
-            OP1_DBL => (op0.expect("None op0 for OP1_DBL"), Felt::from(1u8)), // double indexing, op0 should be positive for address
+            OP1_DBL => (op0.expect("None op0 for OP1_DBL"), Felt::ONE), // double indexing, op0 should be positive for address
             /*1*/
-            OP1_VAL => (self.curr.pc, Felt::from(2u32)), // off_op1 will be 1 and then op1 contains an immediate value
-            /*2*/ OP1_FP => (self.curr.fp, Felt::from(1u8)),
-            /*4*/ OP1_AP => (self.curr.ap, Felt::from(1u8)),
+            OP1_VAL => (self.curr.pc, Felt::TWO), // off_op1 will be 1 and then op1 contains an immediate value
+            /*2*/ OP1_FP => (self.curr.fp, Felt::ONE),
+            /*4*/ OP1_AP => (self.curr.ap, Felt::ONE),
             _ => panic!("Invalid op1_src flagset"),
         };
         let op1_addr = reg + self.inst().off_op1(); // apply second offset to corresponding register
@@ -149,7 +149,7 @@ impl<'a> Step<'a> {
                 && self.inst().ap_up() != AP_ADD
             /* not 1*/
             {
-                res = Some(Felt::from(0u8)); // "unused"
+                res = Some(Felt::ZERO); // "unused"
             } else {
                 panic!("Invalid JNZ instruction");
             }
@@ -215,7 +215,7 @@ impl<'a> Step<'a> {
             /*4*/
             PC_JNZ => {
                 // conditional relative jump (jnz)
-                if dst == Some(Felt::from(0u8)) {
+                if dst == Some(Felt::ZERO) {
                     // if condition false, common case
                     Some(self.curr.pc + size)
                 } else {
@@ -254,28 +254,31 @@ impl<'a> Step<'a> {
         let mut op1_update = None;
         let mut res_update = None;
         let mut dst_update = None;
-        // The following branches don't include the assertions. That is done in the verification.
         if self.inst().opcode() == OPC_CALL {
             /*1*/
             // "call" instruction
             if write {
-                self.mem.write(self.curr.ap, self.curr.fp); // Save current fp
+                self.mem.write(self.curr.ap, self.curr.fp);
                 self.mem
-                    .write(self.curr.ap + Felt::from(1u8), self.curr.pc + size);
-                // Save next instruction
+                    .write(self.curr.ap + Felt::ONE, self.curr.pc + size);
+            } else {
+                let expected_a = self.mem.read(self.curr.ap).unwrap();
+                let expected_b = self.mem.read(self.curr.ap + Felt::ONE).unwrap();
+                assert_eq!(expected_a, self.curr.fp);
+                assert_eq!(expected_b, self.curr.pc + size);
             }
 
             dst_update = self.mem.read(self.curr.ap);
-            op0_update = self.mem.read(self.curr.ap + Felt::from(1u8));
+            op0_update = self.mem.read(self.curr.ap + Felt::ONE);
 
             // Update fp
             // pointer for next frame is after current fp and instruction after call
-            next_fp = Some(self.curr.ap + Felt::from(2u8));
+            next_fp = Some(self.curr.ap + Felt::TWO);
 
             // Update ap
             match self.inst().ap_up() {
                 /*0*/
-                AP_Z2 => next_ap = Some(self.curr.ap + Felt::from(2u32)), // two words were written so advance 2 positions
+                AP_Z2 => next_ap = Some(self.curr.ap + Felt::TWO), // two words were written so advance 2 positions
                 _ => panic!("ap increment in call instruction"),
             };
         } else if self.inst().opcode() == OPC_JMP_INC /*0*/
@@ -292,7 +295,7 @@ impl<'a> Step<'a> {
                     // ap += <op> should be larger than current ap
                     next_ap = Some(self.curr.ap + res.expect("None res after AP_ADD"))
                 }
-                /*2*/ AP_ONE => next_ap = Some(self.curr.ap + Felt::from(1u8)), // ap++
+                /*2*/ AP_ONE => next_ap = Some(self.curr.ap + Felt::ONE), // ap++
                 _ => panic!("Invalid ap_up flagset"),
             }
 
@@ -313,6 +316,9 @@ impl<'a> Step<'a> {
                         if write {
                             self.mem
                                 .write(op1_addr, dst.expect("None dst after OPC_AEQ"));
+                        } else {
+                            let expected_a = self.mem.read(op1_addr).unwrap();
+                            assert_eq!(expected_a, dst.unwrap());
                         }
                         op1_update = self.mem.read(op1_addr);
                         res_update = self.mem.read(op1_addr);
@@ -321,6 +327,9 @@ impl<'a> Step<'a> {
                         if write {
                             self.mem
                                 .write(dst_addr, res.expect("None res after OPC_AEQ"));
+                        } else {
+                            let expected_a = self.mem.read(dst_addr).unwrap();
+                            assert_eq!(expected_a, res.unwrap());
                         }
                         dst_update = self.mem.read(dst_addr);
                     }
@@ -406,15 +415,15 @@ impl State {
         }
 
         // Result
-        self.res[0][step] = s.res.unwrap_or(Felt::from(0u8));
+        self.res[0][step] = s.res.unwrap_or(Felt::ZERO);
 
         // Instruction
         self.mem_v[0][step] = s.inst.word();
 
         // Auxiliary values
-        self.mem_v[1][step] = s.dst.unwrap_or(Felt::from(0u8));
-        self.mem_v[2][step] = s.op0.unwrap_or(Felt::from(0u8));
-        self.mem_v[3][step] = s.op1.unwrap_or(Felt::from(0u8));
+        self.mem_v[1][step] = s.dst.unwrap_or(Felt::ZERO);
+        self.mem_v[2][step] = s.op0.unwrap_or(Felt::ZERO);
+        self.mem_v[3][step] = s.op1.unwrap_or(Felt::ZERO);
 
         // Operands
         self.mem_a[1][step] = s.dst_addr;
@@ -451,7 +460,7 @@ impl<'a> Program<'a> {
             steps: 0,
             mem,
             init: RegisterState::new(Felt::from(pc), Felt::from(ap), Felt::from(ap)),
-            fin: RegisterState::new(Felt::from(0u8), Felt::from(0u8), Felt::from(0u8)),
+            fin: RegisterState::new(Felt::ZERO, Felt::ZERO, Felt::ZERO),
             hints,
         }
     }
@@ -462,7 +471,7 @@ impl<'a> Program<'a> {
             steps: 0,
             mem,
             init: RegisterState::new(Felt::from(pc), Felt::from(ap), Felt::from(ap)),
-            fin: RegisterState::new(Felt::from(0u8), Felt::from(0u8), Felt::from(0u8)),
+            fin: RegisterState::new(Felt::ZERO, Felt::ZERO, Felt::ZERO),
         }
     }
 

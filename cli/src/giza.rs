@@ -4,6 +4,7 @@ mod utils;
 use crate::utils::Cmd;
 use clap::{Parser, Subcommand};
 use cmd::prove::ProveArgs;
+use cmd::verify::VerifyArgs;
 
 #[derive(Debug, Parser)]
 #[clap(name = "giza")]
@@ -16,12 +17,16 @@ pub struct Opts {
 #[allow(clippy::large_enum_variant)]
 pub enum Subcommands {
     Prove(ProveArgs),
+    Verify(VerifyArgs),
 }
 
 fn main() {
     let opts = Opts::parse();
     match opts.sub {
         Subcommands::Prove(cmd) => {
+            cmd.run().unwrap();
+        }
+        Subcommands::Verify(cmd) => {
             cmd.run().unwrap();
         }
     }
