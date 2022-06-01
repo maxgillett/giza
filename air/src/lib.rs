@@ -4,12 +4,11 @@ use giza_core::{
     ExtensionOf, Felt, FieldElement, RegisterState, Word, A_RC_PRIME_FIRST, A_RC_PRIME_LAST,
     MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET, P_M_LAST,
 };
-
 use winter_air::{
     Air, AirContext, Assertion, AuxTraceRandElements, ProofOptions as WinterProofOptions,
     TraceInfo, TransitionConstraintDegree,
 };
-use winter_utils::{ByteWriter, Serializable};
+use winter_utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
 // EXPORTS
 // ================================================================================================
@@ -41,47 +40,54 @@ impl Air for ProcessorAir {
 
     fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: WinterProofOptions) -> Self {
         let mut main_degrees = vec![];
+        // Instruction constraints
         for _ in 0..=14 {
-            main_degrees.push(TransitionConstraintDegree::new(2));
+            main_degrees.push(TransitionConstraintDegree::new(2)); // F0-F14
         }
-        main_degrees.push(TransitionConstraintDegree::new(1));
-        main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(1));
-        main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(2));
-        main_degrees.push(TransitionConstraintDegree::new(2));
+        main_degrees.push(TransitionConstraintDegree::new(1)); // F15
+
+        // Operand constraints
+        main_degrees.push(TransitionConstraintDegree::new(2)); // INST
+        main_degrees.push(TransitionConstraintDegree::new(2)); // DST_ADDR
+        main_degrees.push(TransitionConstraintDegree::new(2)); // OP0_ADDR
+        main_degrees.push(TransitionConstraintDegree::new(2)); // OP1_ADDR
+
+        // Register constraints
+        main_degrees.push(TransitionConstraintDegree::new(2)); // NEXT_AP
+        main_degrees.push(TransitionConstraintDegree::new(2)); // NEXT_FP
+        main_degrees.push(TransitionConstraintDegree::new(2)); // NEXT_PC_1
+        main_degrees.push(TransitionConstraintDegree::new(2)); // NEXT_PC_2
+        main_degrees.push(TransitionConstraintDegree::new(2)); // T0
+        main_degrees.push(TransitionConstraintDegree::new(2)); // T1
+
+        // Opcode constraints
+        main_degrees.push(TransitionConstraintDegree::new(2)); // MUL_1
+        main_degrees.push(TransitionConstraintDegree::new(2)); // MUL_2
+        main_degrees.push(TransitionConstraintDegree::new(2)); // CALL_1
+        main_degrees.push(TransitionConstraintDegree::new(2)); // CALL_2
+        main_degrees.push(TransitionConstraintDegree::new(2)); // ASSERT_EQ
 
         let aux_degrees = vec![
             // Memory constraints
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2), // A_M_PRIME 0
+            TransitionConstraintDegree::new(2), //     "     1
+            TransitionConstraintDegree::new(2), //     "     2
+            TransitionConstraintDegree::new(2), //     "     3
+            TransitionConstraintDegree::new(2), // V_M_PRIME 0
+            TransitionConstraintDegree::new(2), //     "     1
+            TransitionConstraintDegree::new(2), //     "     2
+            TransitionConstraintDegree::new(2), //     "     3
+            TransitionConstraintDegree::new(2), //    P_M    0
+            TransitionConstraintDegree::new(2), //     "     1
+            TransitionConstraintDegree::new(2), //     "     2
+            TransitionConstraintDegree::new(2), //     "     3
             // Range check constraints
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
-            TransitionConstraintDegree::new(2),
+            TransitionConstraintDegree::new(2), // A_RC_PRIME 0
+            TransitionConstraintDegree::new(2), //     "      1
+            TransitionConstraintDegree::new(2), //     "      2
+            TransitionConstraintDegree::new(2), //    P_RC    0
+            TransitionConstraintDegree::new(2), //     "      1
+            TransitionConstraintDegree::new(2), //     "      2
         ];
 
         let mut transition_exemptions = vec![];
@@ -206,11 +212,56 @@ impl PublicInputs {
     }
 }
 
+// TODO: Implement Serializable/Deserializable traits in RegisterState and Memory
+// structs instead of manually managing it here
 impl Serializable for PublicInputs {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         target.write(self.init.pc);
         target.write(self.init.ap);
+        target.write(self.init.fp);
         target.write(self.fin.pc);
         target.write(self.fin.ap);
+        target.write(self.fin.fp);
+        target.write_u16(self.rc_min);
+        target.write_u16(self.rc_max);
+        target.write_u64(self.mem.len() as u64);
+        target.write(
+            self.mem
+                .iter()
+                .map(|x| x.unwrap().word())
+                .collect::<Vec<_>>(),
+        );
+        target.write_u64(self.num_steps as u64);
+    }
+}
+
+impl Deserializable for PublicInputs {
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+        let init = RegisterState::new(
+            Felt::read_from(source)?,
+            Felt::read_from(source)?,
+            Felt::read_from(source)?,
+        );
+        let fin = RegisterState::new(
+            Felt::read_from(source)?,
+            Felt::read_from(source)?,
+            Felt::read_from(source)?,
+        );
+        let rc_min = source.read_u16()?;
+        let rc_max = source.read_u16()?;
+        let mem_len = source.read_u64()?;
+        let mem = Felt::read_batch_from(source, mem_len as usize)?
+            .into_iter()
+            .map(|x| Some(Word::new(x)))
+            .collect::<Vec<_>>();
+        let num_steps = source.read_u64()?;
+        Ok(PublicInputs::new(
+            init,
+            fin,
+            rc_min,
+            rc_max,
+            mem,
+            num_steps as usize,
+        ))
     }
 }

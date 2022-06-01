@@ -64,6 +64,11 @@ impl Memory {
         self.codelen
     }
 
+    /// Set size of the public memory
+    pub fn set_codelen(&mut self, len: usize) {
+        self.codelen = len;
+    }
+
     /// Get size of the full memory
     pub fn size(&self) -> u64 {
         self.data.len() as u64
