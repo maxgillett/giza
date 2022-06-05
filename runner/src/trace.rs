@@ -7,7 +7,9 @@ use giza_core::{
 };
 use winterfell::{Matrix, Trace, TraceLayout};
 
+use indicatif::ParallelProgressIterator;
 use indicatif::ProgressIterator;
+use rayon::prelude::*;
 use std::path::PathBuf;
 
 pub struct ExecutionTrace {
@@ -30,8 +32,8 @@ impl<'a, E: FieldElement> VirtualColumn<'a, E> {
         Self { subcols }
     }
 
-    /// Pack subcolumns into a single column: cycle through each subcolumn, appending
-    /// a single value to the column for each iteration step until exhausted
+    /// Pack subcolumns into a single output column: cycle through each subcolumn, appending
+    /// a single value to the output column for each iteration step until exhausted.
     fn to_column(&self) -> Vec<E> {
         let mut col: Vec<E> = vec![];
         for n in 0..self.subcols[0].len() {
@@ -42,7 +44,8 @@ impl<'a, E: FieldElement> VirtualColumn<'a, E> {
         col
     }
 
-    /// Split subcolumns into multiple columns: cycle through each subcolumn, appending...
+    /// Split subcolumns into multiple output columns: for each subcolumn, output a single
+    /// value to each output column, cycling through each output column until exhuasted.
     fn to_columns(&self, num_rows: &[usize]) -> Vec<Vec<E>> {
         let mut n = 0;
         let mut cols: Vec<Vec<E>> = vec![vec![]; num_rows.iter().sum()];
@@ -69,7 +72,6 @@ impl<'a, E: FieldElement> Layouter<'a, E> {
     /// Add one or more columns to the trace. The chunk size determines the number
     /// of subcolumn elements to place within each frame chunk (defaults to 1)
     /// starting from the top most row of the chunk.
-    /// Panics if chunk_size is greater than frame_len
     fn add_columns(&mut self, subcols: &[Vec<E>], chunk_size: Option<usize>) {
         for subcol in subcols.iter() {
             let mut col = E::zeroed_vector(subcol.len());
@@ -82,15 +84,6 @@ impl<'a, E: FieldElement> Layouter<'a, E> {
                 }
             }
             self.columns.push(col);
-        }
-    }
-
-    /// Add one or more virtual columns to the trace
-    #[allow(dead_code)]
-    fn add_virtual_columns(&mut self, vcols: &[VirtualColumn<E>]) {
-        for vcol in vcols.iter() {
-            let subcol = vcol.to_column();
-            self.add_columns(&[subcol], Some(vcol.subcols.len()));
         }
     }
 
@@ -112,13 +105,14 @@ impl<'a, E: FieldElement> Layouter<'a, E> {
 impl ExecutionTrace {
     /// Builds an execution trace
     pub(super) fn new(num_steps: usize, state: &mut State, memory: &Memory) -> Self {
+        // Compute the derived ("auxiliary") trace values: t0, t1, and mul.
+        // Note that in a conditional jump instruction we substitute res with dst^{-1}
+        // (see page 53 of the whitepaper).
         let mut t0 = vec![];
         let mut t1 = vec![];
         let mut mul = vec![];
-        for step in (0..num_steps).progress() {
-            // In a conditional jump instruction, we use substitute res with dst^{-1}
-            // See page 53 of the whitepaper.
-            // TODO: Don't hardcode index values here
+        for step in 0..num_steps {
+            // TODO: Don't hardcode index values
             let f_pc_jnz = state.flags[9][step];
             let dst = state.mem_v[1][step];
             let res = if f_pc_jnz != Felt::ZERO && dst != Felt::ZERO {
@@ -131,42 +125,75 @@ impl ExecutionTrace {
             mul.push(state.mem_v[2][step] * state.mem_v[3][step]); // op0 * op1
         }
 
-        // Append dummy (0,0) public memory values to mem_a and mem_v
+        // Append dummy artificial accesses to mem_a and mem_v to fill memory holes.
+        // These gaps are due to interaction with builtins, and they still need to be handled
+        // elsewhere in the code for soundness.
+        let memory_holes = memory.get_holes(VirtualColumn::new(&state.mem_a).to_column());
+        for (n, col) in VirtualColumn::new(&[memory_holes])
+            .to_columns(&[MEM_A_TRACE_WIDTH])
+            .iter()
+            .enumerate()
+        {
+            state.mem_a[n].extend(col);
+            state.mem_v[n].extend(Felt::zeroed_vector(col.len()));
+        }
+
+        // Append dummy (0,0) public memory values to mem_a and mem_v.
+        // Note that we don't need to worry about precise placement (i.e. ensuring that they are
+        // the final n entries in the columns), because these dummy values will extend into the
+        // resized column cells.
         let zero_column = vec![Felt::ZERO; memory.get_codelen()];
         for (n, col) in VirtualColumn::new(&[zero_column])
             .to_columns(&[MEM_A_TRACE_WIDTH])
             .iter()
             .enumerate()
-            .progress()
         {
             state.mem_a[n].extend(col);
             state.mem_v[n].extend(col);
         }
 
-        // Append trace cells to offsets to fill in gaps between rc_min and rc_max
-        // after biasing the offset values
+        // 1. Convert offsets into an unbiased representation by adding 2^15, so that values are
+        //    within [0, 2^16].
+        // 2. Fill gaps between sorted offsets so that we can compute the proper permutation
+        //    product column in the range check auxiliary segment (if we implemented Ord for Felt
+        //    we could achieve a speedup here)
         let b15 = Felt::from(2u8).exp(15u32.into());
-        let mut rc_column = VirtualColumn::new(&state.offsets)
+        let mut rc_column: Vec<Felt> = VirtualColumn::new(&state.offsets)
             .to_column()
             .into_iter()
             .map(|x| x + b15)
-            .collect::<Vec<_>>();
-        let rc_min: u16 = rc_column
+            .collect();
+        let mut rc_sorted: Vec<u16> = rc_column
             .iter()
             .map(|x| x.as_int().try_into().unwrap())
-            .min()
-            .unwrap();
-        let rc_max: u16 = rc_column
-            .iter()
-            .map(|x| x.as_int().try_into().unwrap())
-            .max()
-            .unwrap();
-        for x in (rc_min..rc_max).progress() {
-            if !rc_column.contains(&x.into()) {
-                rc_column.push(x.into());
+            .collect();
+        rc_sorted.sort_unstable();
+        let rc_min = rc_sorted.first().unwrap().clone();
+        let rc_max = rc_sorted.last().unwrap().clone();
+        for s in rc_sorted.windows(2).progress() {
+            match s[1] - s[0] {
+                0 | 1 => {}
+                _ => {
+                    rc_column.extend((s[0] + 1..s[1]).map(|x| Felt::from(x)).collect::<Vec<_>>());
+                }
             }
         }
         let offsets = VirtualColumn::new(&[rc_column]).to_columns(&[3]);
+
+        // This is hacky... We're adding a selector to the main trace to disable the Cairo
+        // transition constraints for public memory (and any extended trace cells that were added
+        // to ensure that that length is a power of two). If we instead used transition
+        // exemptions, then proving/verifying time would be too slow for programs with a large
+        // number of instructions.
+        //
+        // There are two methods that can be combined to avoid selectors:
+        // - Transformed traces so that they end in an inifite loop (use the instruction
+        //   0x10780017fff7fffu64).
+        // - Use a short bootloader program so thath the number of transition exemptions is small
+        //   and doesn't harm performance. This bootloader will compute and expose a hash of the
+        //   "private" memory containing the program instructions to be run.
+        let mut selector = vec![Felt::ONE; num_steps];
+        selector[num_steps - 1] = Felt::ZERO;
 
         // Layout the trace
         let mut columns: Vec<Vec<Felt>> = Vec::with_capacity(TRACE_WIDTH);
@@ -178,6 +205,7 @@ impl ExecutionTrace {
         layouter.add_columns(&state.mem_v, None);
         layouter.add_columns(&offsets, None);
         layouter.add_columns(&[t0, t1, mul], None);
+        layouter.add_columns(&[selector], None);
 
         layouter.resize_all();
 
@@ -202,16 +230,22 @@ impl ExecutionTrace {
         trace_path: PathBuf,
         memory_path: PathBuf,
     ) -> ExecutionTrace {
-        let mut mem = read_memory_bin(memory_path, program_path);
+        let mem = read_memory_bin(memory_path, program_path);
         let registers = read_trace_bin(trace_path);
         let num_steps = registers.len();
 
-        // Reconstruct state using registers and memory
+        let inst_states = registers
+            .par_iter()
+            .progress()
+            .map(|ptrs| {
+                let mut step = Step::new(&mem, *ptrs);
+                step.execute(false)
+            })
+            .collect::<Vec<_>>();
+
         let mut state = State::new(mem.size() as usize);
-        for (n, ptrs) in registers.into_iter().enumerate().progress() {
-            let mut step = Step::new(&mut mem, ptrs);
-            let inst_state = step.execute(false);
-            state.set_register_state(n, ptrs);
+        for (n, (reg_state, inst_state)) in registers.iter().zip(inst_states).enumerate() {
+            state.set_register_state(n, *reg_state);
             state.set_instruction_state(n, inst_state);
         }
 
@@ -279,12 +313,12 @@ where
     let v = VirtualColumn::new(&cols_v[..]).to_column();
 
     // Replace dummy public memory accesses
-    let trace_len = a.len() - trace.memory.get_codelen();
-    let mut a_replaced = a.clone()[0..trace_len].to_vec();
-    let mut v_replaced = v.clone()[0..trace_len].to_vec();
+    let l = a.len() - trace.memory.get_codelen() - 1;
+    let mut a_replaced = a.clone();
+    let mut v_replaced = v.clone();
     for (i, x) in trace.public_mem().iter().enumerate() {
-        a_replaced.push(Felt::from(i as u64));
-        v_replaced.push(x.unwrap().word().into());
+        a_replaced[l + i] = Felt::from(i as u64);
+        v_replaced[l + i] = x.unwrap().word().into();
     }
 
     // Construct two additional virtual columns sorted by memory access
@@ -302,7 +336,7 @@ where
     let a_0: E = a[0].into();
     let v_0: E = v[0].into();
     p[0] = (z - (a_0 + alpha * v_0).into()) / (z - (a_prime[0] + alpha * v_prime[0]).into());
-    for i in 1..p.len() {
+    for i in (1..p.len()).progress() {
         let a_i: E = a[i].into();
         let v_i: E = v[i].into();
         p[i] = (z - (a_i + alpha * v_i).into()) * p[i - 1]
@@ -340,7 +374,7 @@ where
     let mut p = vec![E::ZERO; trace.length() * OFF_X_TRACE_WIDTH];
     let a_0: E = a[0].into();
     p[0] = (z - a_0) / (z - a_prime[0]);
-    for i in 1..p.len() {
+    for i in (1..p.len()).progress() {
         let a_i: E = a[i].into();
         p[i] = (z - a_i) * p[i - 1] / (z - a_prime[i]);
     }

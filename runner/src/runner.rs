@@ -10,7 +10,7 @@ use crate::hints::{ExecutionEffect as HintExecutionEffect, HintManager};
 
 /// A data structure to store a current step of computation
 pub struct Step<'a> {
-    pub mem: &'a mut Memory,
+    pub mem: &'a Memory,
     pub curr: RegisterState,
     pub next: Option<RegisterState>,
     #[cfg(feature = "hints")]
@@ -19,7 +19,7 @@ pub struct Step<'a> {
 
 impl<'a> Step<'a> {
     /// Creates a new execution step from a step index, a word, and current pointers
-    pub fn new(mem: &'a mut Memory, ptrs: RegisterState) -> Step<'a> {
+    pub fn new(mem: &'a Memory, ptrs: RegisterState) -> Step<'a> {
         Step {
             mem,
             curr: ptrs,
@@ -258,9 +258,9 @@ impl<'a> Step<'a> {
             /*1*/
             // "call" instruction
             if write {
-                self.mem.write(self.curr.ap, self.curr.fp);
-                self.mem
-                    .write(self.curr.ap + Felt::ONE, self.curr.pc + size);
+                //self.mem.write(self.curr.ap, self.curr.fp);
+                //self.mem
+                //    .write(self.curr.ap + Felt::ONE, self.curr.pc + size);
             } else {
                 let expected_a = self.mem.read(self.curr.ap).unwrap();
                 let expected_b = self.mem.read(self.curr.ap + Felt::ONE).unwrap();
@@ -314,8 +314,8 @@ impl<'a> Step<'a> {
                     if res.is_none() {
                         // res = dst
                         if write {
-                            self.mem
-                                .write(op1_addr, dst.expect("None dst after OPC_AEQ"));
+                            //self.mem
+                            //    .write(op1_addr, dst.expect("None dst after OPC_AEQ"));
                         } else {
                             let expected_a = self.mem.read(op1_addr).unwrap();
                             assert_eq!(expected_a, dst.unwrap());
@@ -325,8 +325,8 @@ impl<'a> Step<'a> {
                     } else {
                         // dst = res
                         if write {
-                            self.mem
-                                .write(dst_addr, res.expect("None res after OPC_AEQ"));
+                            //self.mem
+                            //    .write(dst_addr, res.expect("None res after OPC_AEQ"));
                         } else {
                             let expected_a = self.mem.read(dst_addr).unwrap();
                             assert_eq!(expected_a, res.unwrap());

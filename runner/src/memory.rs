@@ -1,10 +1,11 @@
 // Modified from https://github.com/o1-labs/proof-systems
 
+use std::convert::TryInto;
 use std::fmt::{Display, Formatter, Result};
 use std::ops::{Index, IndexMut};
 
 use core::iter::repeat;
-use giza_core::{Felt, FieldHelpers, Word};
+use giza_core::{Felt, FieldHelpers, StarkField, Word};
 
 /// This data structure stores the memory of the program
 #[derive(Clone)]
@@ -93,9 +94,33 @@ impl Memory {
     }
 
     /// Read element in memory address
-    pub fn read(&mut self, addr: Felt) -> Option<Felt> {
-        self.resize(addr.to_u64()); // Resize if necessary
+    pub fn read(&self, addr: Felt) -> Option<Felt> {
+        //self.resize(addr.to_u64()); // Resize if necessary
         self[addr].map(|x| x.word())
+    }
+
+    /// Returns a list of all memory holes (defined as missing non-public memory
+    /// accesses from the provided trace vec)
+    /// TODO: Memory should be stored as a BTreeMap in data, not a Vec.
+    pub fn get_holes(&self, vec: Vec<Felt>) -> Vec<Felt> {
+        let mut accesses = vec
+            .iter()
+            .map(|x| TryInto::<u64>::try_into(x.as_int()).unwrap())
+            .collect::<Vec<_>>();
+        accesses.sort_unstable();
+
+        let mut holes = vec![];
+        for s in accesses.windows(2) {
+            match s[1] - s[0] {
+                0 | 1 => {}
+                _ => {
+                    if s[0] > self.codelen as u64 {
+                        holes.extend((s[0] + 1..s[1]).map(|x| Felt::from(x)).collect::<Vec<_>>());
+                    }
+                }
+            }
+        }
+        holes
     }
 }
 

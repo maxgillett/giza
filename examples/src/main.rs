@@ -1,5 +1,5 @@
-use air::{ProcessorAir, ProofOptions, PublicInputs};
-use giza_core::{Felt, RegisterState};
+use air::{ProcessorAir, ProofOptions};
+use giza_core::Felt;
 use runner::{Memory, Program};
 
 fn main() {
@@ -35,7 +35,8 @@ fn main() {
         Felt::from(0x48127ff67fff8000u64),
         Felt::from(0x1104800180018000u64),
         -Felt::from(17u64),
-        Felt::from(0x208b7fff7fff7ffeu64),
+        //Felt::from(0x208b7fff7fff7ffeu64),
+        Felt::from(0x10780017fff7fffu64), // infinite loop
     ];
     let mut mem = Memory::new(instrs);
     mem.write_pub(Felt::from(21u32), Felt::from(41u32)); // beginning of output

@@ -86,6 +86,7 @@ enum DataSegment {
     MemoryValues,
     Offsets,
     TempValues,
+    Selector,
 }
 
 impl<'a, E: FieldElement> MainFrameSegment<'a, E> {
@@ -103,6 +104,7 @@ impl<'a, E: FieldElement> MainFrameSegment<'a, E> {
             DataSegment::MemoryValues => MEM_V_TRACE_OFFSET,
             DataSegment::Offsets => OFF_X_TRACE_OFFSET,
             DataSegment::TempValues => DERIVED_TRACE_OFFSET,
+            DataSegment::Selector => SELECTOR_TRACE_OFFSET,
         };
         self.table.get_row(self.row_start)[offset + pos]
     }
@@ -180,6 +182,10 @@ impl<'a, E: FieldElement + From<Felt>> MainFrameSegment<'a, E> {
     /// Virtual columns of offsets
     pub fn a_rc(&self, idx: usize) -> E {
         self.get_virtual(idx, OFF_X_TRACE_OFFSET, OFF_X_TRACE_WIDTH)
+    }
+    /// Selector
+    pub fn selector(&self) -> E {
+        self.get(0, DataSegment::Selector)
     }
 }
 

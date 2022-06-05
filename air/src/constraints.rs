@@ -8,6 +8,7 @@ pub trait EvaluationResult<E: FieldElement> {
     fn evaluate_operand_constraints(&mut self, frame: &MainEvaluationFrame<E>);
     fn evaluate_register_constraints(&mut self, frame: &MainEvaluationFrame<E>);
     fn evaluate_opcode_constraints(&mut self, frame: &MainEvaluationFrame<E>);
+    fn enforce_selector(&mut self, frame: &MainEvaluationFrame<E>);
 }
 
 pub trait AuxEvaluationResult<E: FieldElement, F: FieldElement + ExtensionOf<E>> {
@@ -143,6 +144,13 @@ impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
         self[CALL_1] = curr.f_opc_call() * (curr.dst() - curr.fp());
         self[CALL_2] = curr.f_opc_call() * (curr.op0() - (curr.pc() + curr.inst_size()));
         self[ASSERT_EQ] = curr.f_opc_aeq() * (curr.dst() - curr.res());
+    }
+
+    fn enforce_selector(&mut self, frame: &MainEvaluationFrame<E>) {
+        let curr = frame.current();
+        for n in INST..=ASSERT_EQ {
+            self[n] *= curr.selector();
+        }
     }
 }
 

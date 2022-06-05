@@ -47,25 +47,25 @@ impl Air for ProcessorAir {
         main_degrees.push(TransitionConstraintDegree::new(1)); // F15
 
         // Operand constraints
-        main_degrees.push(TransitionConstraintDegree::new(2)); // INST
-        main_degrees.push(TransitionConstraintDegree::new(2)); // DST_ADDR
-        main_degrees.push(TransitionConstraintDegree::new(2)); // OP0_ADDR
-        main_degrees.push(TransitionConstraintDegree::new(2)); // OP1_ADDR
+        main_degrees.push(TransitionConstraintDegree::new(4)); // INST
+        main_degrees.push(TransitionConstraintDegree::new(4)); // DST_ADDR
+        main_degrees.push(TransitionConstraintDegree::new(4)); // OP0_ADDR
+        main_degrees.push(TransitionConstraintDegree::new(4)); // OP1_ADDR
 
         // Register constraints
-        main_degrees.push(TransitionConstraintDegree::new(2)); // NEXT_AP
-        main_degrees.push(TransitionConstraintDegree::new(2)); // NEXT_FP
-        main_degrees.push(TransitionConstraintDegree::new(2)); // NEXT_PC_1
-        main_degrees.push(TransitionConstraintDegree::new(2)); // NEXT_PC_2
-        main_degrees.push(TransitionConstraintDegree::new(2)); // T0
-        main_degrees.push(TransitionConstraintDegree::new(2)); // T1
+        main_degrees.push(TransitionConstraintDegree::new(4)); // NEXT_AP
+        main_degrees.push(TransitionConstraintDegree::new(4)); // NEXT_FP
+        main_degrees.push(TransitionConstraintDegree::new(4)); // NEXT_PC_1
+        main_degrees.push(TransitionConstraintDegree::new(4)); // NEXT_PC_2
+        main_degrees.push(TransitionConstraintDegree::new(4)); // T0
+        main_degrees.push(TransitionConstraintDegree::new(4)); // T1
 
         // Opcode constraints
-        main_degrees.push(TransitionConstraintDegree::new(2)); // MUL_1
-        main_degrees.push(TransitionConstraintDegree::new(2)); // MUL_2
-        main_degrees.push(TransitionConstraintDegree::new(2)); // CALL_1
-        main_degrees.push(TransitionConstraintDegree::new(2)); // CALL_2
-        main_degrees.push(TransitionConstraintDegree::new(2)); // ASSERT_EQ
+        main_degrees.push(TransitionConstraintDegree::new(4)); // MUL_1
+        main_degrees.push(TransitionConstraintDegree::new(4)); // MUL_2
+        main_degrees.push(TransitionConstraintDegree::new(4)); // CALL_1
+        main_degrees.push(TransitionConstraintDegree::new(4)); // CALL_2
+        main_degrees.push(TransitionConstraintDegree::new(4)); // ASSERT_EQ
 
         let aux_degrees = vec![
             // Memory constraints
@@ -91,11 +91,8 @@ impl Air for ProcessorAir {
         ];
 
         let mut transition_exemptions = vec![];
-        transition_exemptions.extend(vec![
-            trace_info.length() - pub_inputs.num_steps + 1;
-            main_degrees.len()
-        ]);
-        transition_exemptions.extend(vec![trace_info.length() - 1; aux_degrees.len()]);
+        transition_exemptions.extend(vec![1; main_degrees.len()]);
+        transition_exemptions.extend(vec![1; aux_degrees.len()]);
 
         let mut context =
             AirContext::new_multi_segment(trace_info, main_degrees, aux_degrees, 4, 3, options);
@@ -128,6 +125,7 @@ impl Air for ProcessorAir {
         let z = random_elements[0];
         let alpha = random_elements[1];
         let num = z.exp((self.pub_inputs.mem.len() as u64).into());
+
         let den = self
             .pub_inputs
             .mem
@@ -157,6 +155,7 @@ impl Air for ProcessorAir {
         result.evaluate_operand_constraints(frame);
         result.evaluate_register_constraints(frame);
         result.evaluate_opcode_constraints(frame);
+        result.enforce_selector(frame);
     }
 
     fn evaluate_aux_transition<

@@ -61,7 +61,11 @@ pub const DERIVED_TRACE_OFFSET: usize = 30;
 pub const DERIVED_TRACE_WIDTH: usize = 3;
 pub const DERIVED_TRACE_RANGE: Range<usize> = range(DERIVED_TRACE_OFFSET, DERIVED_TRACE_WIDTH);
 
-pub const TRACE_WIDTH: usize = 33;
+pub const SELECTOR_TRACE_OFFSET: usize = 33;
+pub const SELECTOR_TRACE_WIDTH: usize = 1;
+pub const SELECTOR_TRACE_RANGE: Range<usize> = range(SELECTOR_TRACE_OFFSET, SELECTOR_TRACE_WIDTH);
+
+pub const TRACE_WIDTH: usize = 34;
 
 // AUX TRACE LAYOUT (Memory)
 // -----------------------------------------------------------------------------------------
