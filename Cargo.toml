@@ -5,5 +5,6 @@ members = [
   "prover",
   "runner",
   "examples",
-  "cli"
+  "cli",
+  "wasm"
 ]

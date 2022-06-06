@@ -125,31 +125,22 @@ impl ExecutionTrace {
             mul.push(state.mem_v[2][step] * state.mem_v[3][step]); // op0 * op1
         }
 
-        // Append dummy artificial accesses to mem_a and mem_v to fill memory holes.
-        // These gaps are due to interaction with builtins, and they still need to be handled
-        // elsewhere in the code for soundness.
-        let memory_holes = memory.get_holes(VirtualColumn::new(&state.mem_a).to_column());
-        for (n, col) in VirtualColumn::new(&[memory_holes])
+        // 1. Append dummy artificial accesses to mem_a and mem_v to fill memory holes.
+        //    These gaps are due to interaction with builtins, and they still need to be handled
+        //    elsewhere in the code for soundness.
+        // 2. Append dummy (0,0) public memory values to mem_a and mem_v.
+        //    Note that we don't need to worry about precise placement (i.e. ensuring that they are
+        //    the final n entries in the columns), because these dummy values will extend into the
+        //    resized column cells.
+        let mut col_extension = memory.get_holes(VirtualColumn::new(&state.mem_a).to_column());
+        col_extension.extend(vec![Felt::ZERO; memory.get_codelen()]);
+        for (n, col) in VirtualColumn::new(&[col_extension])
             .to_columns(&[MEM_A_TRACE_WIDTH])
             .iter()
             .enumerate()
         {
             state.mem_a[n].extend(col);
             state.mem_v[n].extend(Felt::zeroed_vector(col.len()));
-        }
-
-        // Append dummy (0,0) public memory values to mem_a and mem_v.
-        // Note that we don't need to worry about precise placement (i.e. ensuring that they are
-        // the final n entries in the columns), because these dummy values will extend into the
-        // resized column cells.
-        let zero_column = vec![Felt::ZERO; memory.get_codelen()];
-        for (n, col) in VirtualColumn::new(&[zero_column])
-            .to_columns(&[MEM_A_TRACE_WIDTH])
-            .iter()
-            .enumerate()
-        {
-            state.mem_a[n].extend(col);
-            state.mem_v[n].extend(col);
         }
 
         // 1. Convert offsets into an unbiased representation by adding 2^15, so that values are
