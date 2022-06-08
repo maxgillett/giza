@@ -5,7 +5,7 @@
 ///   prime is assumed to be equal to the 252-bit Starkware prime).
 ///
 use crate::memory::Memory;
-use giza_core::{Felt, RegisterState};
+use giza_core::{Builtin, Felt, RegisterState};
 use serde::{Deserialize, Serialize};
 use std::fs::{metadata, File};
 use std::io::{BufReader, Read};
@@ -20,7 +20,7 @@ struct CompiledProgram {
 
 /// Parses an execution trace outputted by the cairo-runner.
 /// e.g. cairo-runner --trace_file out/trace.bin
-pub fn read_trace_bin(path: PathBuf) -> Vec<RegisterState> {
+pub fn read_trace_bin(path: &PathBuf) -> Vec<RegisterState> {
     let mut f = File::open(&path).expect("no file found");
     let metadata = metadata(&path).expect("unable to read metadata");
     let length = metadata.len() as usize;
@@ -49,7 +49,7 @@ pub fn read_trace_bin(path: PathBuf) -> Vec<RegisterState> {
 
 /// Parses a memory dump outputted by the cairo-runner.
 /// e.g. cairo-runner --memory_file out/memory.bin
-pub fn read_memory_bin(mem_path: PathBuf, program_path: PathBuf) -> Memory {
+pub fn read_memory_bin(mem_path: &PathBuf, program_path: &PathBuf) -> Memory {
     // Read memory trace
     let mut f = File::open(&mem_path).expect("Memory trace file not found");
     let metadata = metadata(&mem_path).expect("Unable to read metadata");
@@ -77,6 +77,22 @@ pub fn read_memory_bin(mem_path: PathBuf, program_path: PathBuf) -> Memory {
     mem.set_codelen(p.data.len());
 
     mem
+}
+
+pub fn read_builtins(program_path: &PathBuf) -> Vec<Builtin> {
+    // Read compiled program and set memory codelen (the length of the public memory)
+    let file = File::open(&program_path).expect("Compiled program file not found");
+    let reader = BufReader::new(file);
+    let p: CompiledProgram = serde_json::from_reader(reader).unwrap();
+    let builtins = p
+        .builtins
+        .iter()
+        .filter_map(|b| match b.as_str() {
+            "output" => Some(Builtin::Output {}),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    builtins
 }
 
 #[cfg(test)]

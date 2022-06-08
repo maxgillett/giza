@@ -447,6 +447,8 @@ pub struct Program<'a> {
     init: RegisterState,
     /// final register state
     fin: RegisterState,
+    /// requested builtins
+    builtins: Vec<Builtin>,
     /// hints
     #[cfg(feature = "hints")]
     hints: Option<HintManager>,
@@ -461,6 +463,7 @@ impl<'a> Program<'a> {
             mem,
             init: RegisterState::new(Felt::from(pc), Felt::from(ap), Felt::from(ap)),
             fin: RegisterState::new(Felt::ZERO, Felt::ZERO, Felt::ZERO),
+            builtins: vec![],
             hints,
         }
     }
@@ -472,6 +475,7 @@ impl<'a> Program<'a> {
             mem,
             init: RegisterState::new(Felt::from(pc), Felt::from(ap), Felt::from(ap)),
             fin: RegisterState::new(Felt::ZERO, Felt::ZERO, Felt::ZERO),
+            builtins: vec![],
         }
     }
 
@@ -523,6 +527,11 @@ impl<'a> Program<'a> {
         self.fin = curr;
         self.steps = n;
 
-        Ok(ExecutionTrace::new(n, &mut state, &self.mem))
+        Ok(ExecutionTrace::new(
+            n,
+            &mut state,
+            &self.mem,
+            self.builtins.clone(),
+        ))
     }
 }

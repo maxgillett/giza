@@ -100,6 +100,10 @@ pub const A_RC_PRIME_WIDTH: usize = 3;
 pub const P_RC_OFFSET: usize = 15;
 pub const P_RC_WIDTH: usize = 3;
 
+// Main column indices
+
+pub const AP: usize = MEM_P_TRACE_OFFSET;
+
 // Aux column indices
 
 pub const P_M_LAST: usize = P_M_OFFSET + P_M_WIDTH - 1;
@@ -177,4 +181,10 @@ impl InstructionState {
             op1_addr,
         }
     }
+}
+
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub enum Builtin {
+    Output,
+    RangeCheck,
 }

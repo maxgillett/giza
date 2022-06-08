@@ -99,7 +99,7 @@ impl Memory {
         self[addr].map(|x| x.word())
     }
 
-    /// Returns a list of all memory holes (defined as missing non-public memory
+    /// Returns a list of all memory holes (defined as missing private memory
     /// accesses from the provided trace vec)
     /// TODO: Memory should be stored as a BTreeMap in data, not a Vec.
     pub fn get_holes(&self, vec: Vec<Felt>) -> Vec<Felt> {

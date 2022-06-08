@@ -60,8 +60,16 @@ impl Prover for ExecutionProver {
         let rc_min = trace.rc_min;
         let rc_max = trace.rc_max;
 
-        let mem = trace.public_mem();
+        let mem = trace.get_public_mem();
 
-        PublicInputs::new(init, fin, rc_min, rc_max, mem, trace.num_steps)
+        PublicInputs::new(
+            init,
+            fin,
+            rc_min,
+            rc_max,
+            mem,
+            trace.num_steps,
+            trace.builtins.clone(),
+        )
     }
 }

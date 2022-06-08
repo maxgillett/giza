@@ -1,14 +1,16 @@
-use crate::cairo_interop::{read_memory_bin, read_trace_bin};
+use crate::cairo_interop::{read_builtins, read_memory_bin, read_trace_bin};
 use crate::memory::Memory;
 use crate::runner::{State, Step};
 use giza_core::{
-    Felt, FieldElement, StarkField, Word, MEM_A_TRACE_RANGE, MEM_A_TRACE_WIDTH, MEM_V_TRACE_RANGE,
-    OFF_X_TRACE_RANGE, OFF_X_TRACE_WIDTH, TRACE_WIDTH,
+    Builtin, Felt, FieldElement, StarkField, Word, AP, A_M_PRIME_WIDTH, A_RC_PRIME_WIDTH,
+    MEM_A_TRACE_RANGE, MEM_A_TRACE_WIDTH, MEM_V_TRACE_RANGE, OFF_X_TRACE_RANGE, OFF_X_TRACE_WIDTH,
+    P_M_WIDTH, P_RC_WIDTH, TRACE_WIDTH, V_M_PRIME_WIDTH,
 };
 use winterfell::{Matrix, Trace, TraceLayout};
 
 use indicatif::ParallelProgressIterator;
 use indicatif::ProgressIterator;
+use itertools::Itertools;
 use rayon::prelude::*;
 use std::path::PathBuf;
 
@@ -20,6 +22,7 @@ pub struct ExecutionTrace {
     pub rc_min: u16,
     pub rc_max: u16,
     pub num_steps: usize,
+    pub builtins: Vec<Builtin>,
 }
 
 /// A virtual column is composed of one or more subcolumns.
@@ -89,22 +92,18 @@ impl<'a, E: FieldElement> Layouter<'a, E> {
 
     /// Resize columns to next power of two
     fn resize_all(&mut self) {
-        let trace_len_pow2 = self
-            .columns
-            .iter()
-            .map(|x| x.len().next_power_of_two())
-            .max()
-            .unwrap();
-        for column in self.columns.iter_mut() {
-            let last_value = column.last().copied().unwrap();
-            column.resize(trace_len_pow2, last_value);
-        }
+        resize_to_pow2(&mut self.columns);
     }
 }
 
 impl ExecutionTrace {
     /// Builds an execution trace
-    pub(super) fn new(num_steps: usize, state: &mut State, memory: &Memory) -> Self {
+    pub(super) fn new(
+        num_steps: usize,
+        state: &mut State,
+        memory: &Memory,
+        builtins: Vec<Builtin>,
+    ) -> Self {
         // Compute the derived ("auxiliary") trace values: t0, t1, and mul.
         // Note that in a conditional jump instruction we substitute res with dst^{-1}
         // (see page 53 of the whitepaper).
@@ -132,6 +131,8 @@ impl ExecutionTrace {
         //    Note that we don't need to worry about precise placement (i.e. ensuring that they are
         //    the final n entries in the columns), because these dummy values will extend into the
         //    resized column cells.
+        //    TODO: We should also append dummy output (not just program) public memory, in case the
+        //    trace length is not already long enough to contain these values.
         let mut col_extension = memory.get_holes(VirtualColumn::new(&state.mem_a).to_column());
         col_extension.extend(vec![Felt::ZERO; memory.get_codelen()]);
         for (n, col) in VirtualColumn::new(&[col_extension])
@@ -178,11 +179,11 @@ impl ExecutionTrace {
         // number of instructions.
         //
         // There are two methods that can be combined to avoid selectors:
-        // - Transformed traces so that they end in an inifite loop (use the instruction
+        // - Transform traces so that they end in an inifite loop (use the instruction
         //   0x10780017fff7fffu64).
-        // - Use a short bootloader program so thath the number of transition exemptions is small
+        // - Use a short bootloader program so that the number of transition exemptions is small
         //   and doesn't harm performance. This bootloader will compute and expose a hash of the
-        //   "private" memory containing the program instructions to be run.
+        //   private memory containing the program instructions to be run.
         let mut selector = vec![Felt::ONE; num_steps];
         selector[num_steps - 1] = Felt::ZERO;
 
@@ -212,6 +213,7 @@ impl ExecutionTrace {
             rc_min,
             rc_max,
             num_steps,
+            builtins,
         }
     }
 
@@ -221,8 +223,9 @@ impl ExecutionTrace {
         trace_path: PathBuf,
         memory_path: PathBuf,
     ) -> ExecutionTrace {
-        let mem = read_memory_bin(memory_path, program_path);
-        let registers = read_trace_bin(trace_path);
+        let mem = read_memory_bin(&memory_path, &program_path);
+        let registers = read_trace_bin(&trace_path);
+        let builtins = read_builtins(&program_path);
         let num_steps = registers.len();
 
         let inst_states = registers
@@ -234,18 +237,52 @@ impl ExecutionTrace {
             })
             .collect::<Vec<_>>();
 
-        let mut state = State::new(mem.size() as usize);
+        let mut state = State::new(registers.len());
         for (n, (reg_state, inst_state)) in registers.iter().zip(inst_states).enumerate() {
             state.set_register_state(n, *reg_state);
             state.set_instruction_state(n, inst_state);
         }
 
-        Self::new(num_steps, &mut state, &mem)
+        Self::new(num_steps, &mut state, &mem, builtins)
     }
 
-    /// Return the public memory
-    pub fn public_mem(&self) -> Vec<Option<Word>> {
-        self.memory.data[..self.memory.get_codelen()].to_vec()
+    /// Return the program public memory
+    pub fn get_program_mem(&self) -> (Vec<u64>, Vec<Option<Word>>) {
+        let addrs = (0..self.memory.get_codelen() as u64).collect::<Vec<_>>();
+        let vals = self.memory.data[..self.memory.get_codelen()].to_vec();
+        (addrs, vals)
+    }
+
+    /// Return the output public memory
+    pub fn get_output_mem(&self) -> (Vec<u64>, Vec<Option<Word>>) {
+        if self.builtins.contains(&Builtin::Output {}) {
+            let ap_fin = self.main_segment().get_column(AP)[self.num_steps - 1] - Felt::ONE;
+            let ptr_start: u64 = ap_fin.as_int().try_into().unwrap();
+            let ptr_end: u64 = self
+                .memory
+                .read(ap_fin)
+                .unwrap()
+                .as_int()
+                .try_into()
+                .unwrap();
+            let addrs = (ptr_start + 1..ptr_end).collect::<Vec<_>>();
+            let vals = addrs
+                .iter()
+                .map(|i| self.memory.data[*i as usize])
+                .collect::<Vec<_>>();
+            (addrs, vals)
+        } else {
+            (vec![], vec![])
+        }
+    }
+
+    /// Return the combined public memory
+    pub fn get_public_mem(&self) -> (Vec<u64>, Vec<Option<Word>>) {
+        let (mut a, mut v) = self.get_program_mem();
+        let (out_a, out_v) = self.get_output_mem();
+        a.extend(out_a);
+        v.extend(out_v);
+        (a, v)
     }
 }
 
@@ -292,37 +329,42 @@ where
     let z = rand_elements[0];
     let alpha = rand_elements[1];
 
-    // Pack main trace columns into virtual columns
+    // Pack main memory access trace columns into two virtual columns
     let main = trace.main_segment();
-    let cols_a = MEM_A_TRACE_RANGE
-        .map(|i| main.get_column(i).to_vec())
-        .collect::<Vec<_>>();
-    let cols_v = MEM_V_TRACE_RANGE
-        .map(|i| main.get_column(i).to_vec())
-        .collect::<Vec<_>>();
-    let a = VirtualColumn::new(&cols_a[..]).to_column();
-    let v = VirtualColumn::new(&cols_v[..]).to_column();
+    let (a, v) = [MEM_A_TRACE_RANGE, MEM_V_TRACE_RANGE]
+        .iter()
+        .map(|range| {
+            VirtualColumn::new(
+                &range
+                    .clone()
+                    .map(|i| main.get_column(i).to_vec())
+                    .collect::<Vec<_>>()[..],
+            )
+            .to_column()
+        })
+        .collect_tuple()
+        .unwrap();
 
-    // Replace dummy public memory accesses
-    let l = a.len() - trace.memory.get_codelen() - 1;
+    // Construct duplicate virtual columns sorted by memory access, with dummy public
+    // memory addresses/values replaced by their true values
+    let mut a_prime = vec![E::ZERO; a.len()];
+    let mut v_prime = vec![E::ZERO; a.len()];
     let mut a_replaced = a.clone();
     let mut v_replaced = v.clone();
-    for (i, x) in trace.public_mem().iter().enumerate() {
-        a_replaced[l + i] = Felt::from(i as u64);
+    let (pub_a, pub_v) = trace.get_public_mem();
+    let l = a.len() - pub_a.len() - 1;
+    for (i, (n, x)) in pub_a.iter().copied().zip(pub_v).enumerate() {
+        a_replaced[l + i] = Felt::from(n);
         v_replaced[l + i] = x.unwrap().word().into();
     }
-
-    // Construct two additional virtual columns sorted by memory access
-    let mut indices = (0..a_replaced.len()).collect::<Vec<_>>();
+    let mut indices = (0..a.len()).collect::<Vec<_>>();
     indices.sort_by_key(|&i| a_replaced[i].as_int());
-    let mut a_prime = vec![E::ZERO; indices.len()];
-    let mut v_prime = vec![E::ZERO; indices.len()];
     for (i, j) in indices.iter().copied().enumerate() {
         a_prime[i] = a_replaced[j].into();
         v_prime[i] = v_replaced[j].into();
     }
 
-    // Compute virtual column of permutation products
+    // Construct virtual column of computed permutation products
     let mut p = vec![E::ZERO; trace.length() * MEM_A_TRACE_WIDTH];
     let a_0: E = a[0].into();
     let v_0: E = v[0].into();
@@ -335,7 +377,11 @@ where
     }
 
     // Split virtual columns into separate auxiliary columns
-    let mut aux_columns = VirtualColumn::new(&[a_prime, v_prime, p]).to_columns(&[4, 4, 4]);
+    let mut aux_columns = VirtualColumn::new(&[a_prime, v_prime, p]).to_columns(&[
+        A_M_PRIME_WIDTH,
+        V_M_PRIME_WIDTH,
+        P_M_WIDTH,
+    ]);
     resize_to_pow2(&mut aux_columns);
 
     Some(Matrix::new(aux_columns))
@@ -348,20 +394,21 @@ where
 {
     let z = rand_elements[0];
 
+    // Pack main offset trace columns into a single virtual column
     let main = trace.main_segment();
-    let cols_a = OFF_X_TRACE_RANGE
-        .map(|i| main.get_column(i).to_vec())
-        .collect::<Vec<_>>();
+    let a = VirtualColumn::new(
+        &OFF_X_TRACE_RANGE
+            .map(|i| main.get_column(i).to_vec())
+            .collect::<Vec<_>>()[..],
+    )
+    .to_column();
 
-    // Pack main trace columns into virtual columns
-    let a = VirtualColumn::new(&cols_a[..]).to_column();
-
-    // Construct two additional virtual columns sorted by offset values
+    // Construct duplicate virtual column sorted by offset value
     let mut indices = (0..a.len()).collect::<Vec<_>>();
     indices.sort_by_key(|&i| a[i].as_int());
     let a_prime = indices.iter().map(|x| a[*x].into()).collect::<Vec<E>>();
 
-    // Compute virtual column of permutation products
+    // Construct virtual column of computed permutation products
     let mut p = vec![E::ZERO; trace.length() * OFF_X_TRACE_WIDTH];
     let a_0: E = a[0].into();
     p[0] = (z - a_0) / (z - a_prime[0]);
@@ -371,7 +418,8 @@ where
     }
 
     // Split virtual columns into separate auxiliary columns
-    let mut aux_columns = VirtualColumn::new(&[a_prime, p]).to_columns(&[3, 3]);
+    let mut aux_columns =
+        VirtualColumn::new(&[a_prime, p]).to_columns(&[A_RC_PRIME_WIDTH, P_RC_WIDTH]);
     resize_to_pow2(&mut aux_columns);
 
     Some(Matrix::new(aux_columns))

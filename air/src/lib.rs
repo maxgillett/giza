@@ -1,8 +1,8 @@
 #![feature(generic_associated_types)]
 
 use giza_core::{
-    ExtensionOf, Felt, FieldElement, RegisterState, Word, A_RC_PRIME_FIRST, A_RC_PRIME_LAST,
-    MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET, P_M_LAST,
+    Builtin, ExtensionOf, Felt, FieldElement, RegisterState, Word, A_RC_PRIME_FIRST,
+    A_RC_PRIME_LAST, MEM_A_TRACE_OFFSET, MEM_P_TRACE_OFFSET, P_M_LAST,
 };
 use winter_air::{
     Air, AirContext, Assertion, AuxTraceRandElements, ProofOptions as WinterProofOptions,
@@ -122,16 +122,16 @@ impl Air for ProcessorAir {
     ) -> Vec<Assertion<E>> {
         let last_step = self.trace_length() - 1;
         let random_elements = aux_rand_elements.get_segment_elements(0);
+        let mem = &self.pub_inputs.mem;
         let z = random_elements[0];
         let alpha = random_elements[1];
-        let num = z.exp((self.pub_inputs.mem.len() as u64).into());
+        let num = z.exp((mem.0.len() as u64).into());
 
-        let den = self
-            .pub_inputs
-            .mem
+        let den = mem
+            .0
             .iter()
-            .enumerate()
-            .map(|(a, v)| z - (E::from(a as u64) + alpha * E::from(v.unwrap().word())))
+            .zip(&mem.1)
+            .map(|(a, v)| z - (E::from(*a as u64) + alpha * E::from(v.unwrap().word())))
             .reduce(|a, b| a * b)
             .unwrap();
 
@@ -181,14 +181,14 @@ impl Air for ProcessorAir {
 // PUBLIC INPUTS
 // ================================================================================================
 
-#[derive(Debug)]
 pub struct PublicInputs {
-    init: RegisterState,    // initial register state
-    fin: RegisterState,     // final register state
-    rc_min: u16,            // minimum range check value (0 < rc_min < rc_max < 2^16)
-    rc_max: u16,            // maximum range check value
-    mem: Vec<Option<Word>>, // public memory
-    num_steps: usize,       // number of execution steps
+    init: RegisterState,                // initial register state
+    fin: RegisterState,                 // final register state
+    rc_min: u16,                        // minimum range check value (0 < rc_min < rc_max < 2^16)
+    rc_max: u16,                        // maximum range check value
+    mem: (Vec<u64>, Vec<Option<Word>>), // public memory
+    num_steps: usize,                   // number of execution steps
+    builtins: Vec<Builtin>,             // list of builtins
 }
 
 impl PublicInputs {
@@ -197,8 +197,9 @@ impl PublicInputs {
         fin: RegisterState,
         rc_min: u16,
         rc_max: u16,
-        mem: Vec<Option<Word>>,
+        mem: (Vec<u64>, Vec<Option<Word>>),
         num_steps: usize,
+        builtins: Vec<Builtin>,
     ) -> Self {
         Self {
             init,
@@ -207,6 +208,7 @@ impl PublicInputs {
             rc_max,
             mem,
             num_steps,
+            builtins,
         }
     }
 }
@@ -223,14 +225,24 @@ impl Serializable for PublicInputs {
         target.write(self.fin.fp);
         target.write_u16(self.rc_min);
         target.write_u16(self.rc_max);
-        target.write_u64(self.mem.len() as u64);
+        target.write_u64(self.mem.1.len() as u64);
+        for i in 0..self.mem.1.len() as usize {
+            target.write_u64(self.mem.0[i]);
+        }
         target.write(
             self.mem
+                .1
                 .iter()
                 .map(|x| x.unwrap().word())
                 .collect::<Vec<_>>(),
         );
         target.write_u64(self.num_steps as u64);
+        // TODO: Use bit representation once multiple builtins are supported
+        if self.builtins.contains(&Builtin::Output {}) {
+            target.write_u8(1);
+        } else {
+            target.write_u8(0);
+        }
     }
 }
 
@@ -249,18 +261,28 @@ impl Deserializable for PublicInputs {
         let rc_min = source.read_u16()?;
         let rc_max = source.read_u16()?;
         let mem_len = source.read_u64()?;
-        let mem = Felt::read_batch_from(source, mem_len as usize)?
+        let mut mem_a = vec![0u64; mem_len as usize];
+        for i in 0..mem_len as usize {
+            mem_a[i] = source.read_u64()?;
+        }
+        let mem_v = Felt::read_batch_from(source, mem_len as usize)?
             .into_iter()
             .map(|x| Some(Word::new(x)))
             .collect::<Vec<_>>();
         let num_steps = source.read_u64()?;
+        // TODO: Interpret as bits once multiple builtins are supported
+        let builtins = match source.read_u8()? {
+            1 => vec![Builtin::Output],
+            _ => vec![],
+        };
         Ok(PublicInputs::new(
             init,
             fin,
             rc_min,
             rc_max,
-            mem,
+            (mem_a, mem_v),
             num_steps as usize,
+            builtins,
         ))
     }
 }
