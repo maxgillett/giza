@@ -41,6 +41,13 @@ pub struct ProveArgs {
         value_hint = ValueHint::FilePath
     )]
     pub output: PathBuf,
+
+    #[clap(
+        help = "Number of serialized outputs",
+        long,
+        value_hint = ValueHint::FilePath
+    )]
+    pub num_outputs: Option<u64>,
 }
 
 #[derive(Debug)]
@@ -51,7 +58,8 @@ impl Cmd for ProveArgs {
 
     fn run(self) -> Self::Output {
         // Load trace from file
-        let trace = ExecutionTrace::from_file(self.program, self.trace, self.memory);
+        let trace =
+            ExecutionTrace::from_file(self.program, self.trace, self.memory, self.num_outputs);
 
         // Generate proof
         let proof_options = ProofOptions::with_96_bit_security();

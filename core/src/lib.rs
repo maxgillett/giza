@@ -185,6 +185,6 @@ impl InstructionState {
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum Builtin {
-    Output,
+    Output(u64),
     RangeCheck,
 }

@@ -182,13 +182,13 @@ impl Air for ProcessorAir {
 // ================================================================================================
 
 pub struct PublicInputs {
-    init: RegisterState,                // initial register state
-    fin: RegisterState,                 // final register state
-    rc_min: u16,                        // minimum range check value (0 < rc_min < rc_max < 2^16)
-    rc_max: u16,                        // maximum range check value
-    mem: (Vec<u64>, Vec<Option<Word>>), // public memory
-    num_steps: usize,                   // number of execution steps
-    builtins: Vec<Builtin>,             // list of builtins
+    pub init: RegisterState,                // initial register state
+    pub fin: RegisterState,                 // final register state
+    pub rc_min: u16, // minimum range check value (0 < rc_min < rc_max < 2^16)
+    pub rc_max: u16, // maximum range check value
+    pub mem: (Vec<u64>, Vec<Option<Word>>), // public memory
+    pub num_steps: usize, // number of execution steps
+    pub builtins: Vec<Builtin>, // list of builtins
 }
 
 impl PublicInputs {
@@ -238,10 +238,12 @@ impl Serializable for PublicInputs {
         );
         target.write_u64(self.num_steps as u64);
         // TODO: Use bit representation once multiple builtins are supported
-        if self.builtins.contains(&Builtin::Output {}) {
-            target.write_u8(1);
-        } else {
-            target.write_u8(0);
+        for builtin in self.builtins.iter() {
+            if let Builtin::Output(_) = builtin {
+                target.write_u8(1);
+            } else {
+                target.write_u8(0);
+            }
         }
     }
 }
@@ -272,7 +274,7 @@ impl Deserializable for PublicInputs {
         let num_steps = source.read_u64()?;
         // TODO: Interpret as bits once multiple builtins are supported
         let builtins = match source.read_u8()? {
-            1 => vec![Builtin::Output],
+            1 => vec![Builtin::Output(0)],
             _ => vec![],
         };
         Ok(PublicInputs::new(

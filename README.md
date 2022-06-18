@@ -12,15 +12,14 @@ The second usage mode accepts only a Cairo program and initial register state, a
 
 Assuming a compiled Cairo program `program.json`, the following steps can be taken to construct a proof:
 
-1. Clone the branch of the Winterfell fork found [here](https://github.com/maxgillett/winterfell/tree/463ee452278ce78ab29b7708ddff8354a5c73e70) into the parent directory of this repository.
-2. Build the Giza CLI using nightly Rust: `cargo build --release`
-3. Generate the partial trace using the Python runner: `cairo-run --program=program.json --layout=all --memory_file=memory.bin --trace_file=trace.bin`
-4. Construct the proof: `giza prove --trace=trace.bin --memory=memory.bin --program=program.json --output=output.bin`
-5. Verify the proof: `giza verify --proof=output.bin`
+1. Install the Giza CLI using nightly Rust: `cargo install --path cli`
+2. Generate the partial trace using an external runner, for example: `cairo-run --program=program.json --layout=all --memory_file=memory.bin --trace_file=trace.bin`. Note that the Starkware runner may only be used for purposes that fall within its [license](https://github.com/starkware-libs/cairo-lang/blob/master/LICENSE.txt).
+3. Construct the proof: `giza prove --trace=trace.bin --memory=memory.bin --program=program.json --output=output.bin`
+4. Verify the proof: `giza verify --proof=output.bin`
 
 ### Mode 2: Supply a program
 
-To prove and verify the execution of the program found in `examples/src/main.rs`, one can run the following after completing step 1 from the previous section:
+To prove and verify the execution of the program found in `examples/src/main.rs`, one can run the following after completing step 1 from the previous section.
 
 `cargo run --release --bin giza-examples`
 

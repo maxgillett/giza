@@ -222,10 +222,11 @@ impl ExecutionTrace {
         program_path: PathBuf,
         trace_path: PathBuf,
         memory_path: PathBuf,
+        output_len: Option<u64>,
     ) -> ExecutionTrace {
         let mem = read_memory_bin(&memory_path, &program_path);
         let registers = read_trace_bin(&trace_path);
-        let builtins = read_builtins(&program_path);
+        let builtins = read_builtins(&program_path, output_len);
         let num_steps = registers.len();
 
         let inst_states = registers
@@ -237,7 +238,7 @@ impl ExecutionTrace {
             })
             .collect::<Vec<_>>();
 
-        let mut state = State::new(registers.len());
+        let mut state = State::new(registers.len() + 1);
         for (n, (reg_state, inst_state)) in registers.iter().zip(inst_states).enumerate() {
             state.set_register_state(n, *reg_state);
             state.set_instruction_state(n, inst_state);
@@ -255,25 +256,22 @@ impl ExecutionTrace {
 
     /// Return the output public memory
     pub fn get_output_mem(&self) -> (Vec<u64>, Vec<Option<Word>>) {
-        if self.builtins.contains(&Builtin::Output {}) {
-            let ap_fin = self.main_segment().get_column(AP)[self.num_steps - 1] - Felt::ONE;
-            let ptr_start: u64 = ap_fin.as_int().try_into().unwrap();
-            let ptr_end: u64 = self
-                .memory
-                .read(ap_fin)
-                .unwrap()
-                .as_int()
-                .try_into()
-                .unwrap();
-            let addrs = (ptr_start + 1..ptr_end).collect::<Vec<_>>();
-            let vals = addrs
-                .iter()
-                .map(|i| self.memory.data[*i as usize])
-                .collect::<Vec<_>>();
-            (addrs, vals)
-        } else {
-            (vec![], vec![])
+        for builtin in self.builtins.iter() {
+            if let Builtin::Output(len) = builtin {
+                let ptr_start: u64 = self.main_segment().get_column(AP)[self.num_steps - 1]
+                    .as_int()
+                    .try_into()
+                    .unwrap();
+                let ptr_end = ptr_start + len;
+                let addrs = (ptr_start..ptr_end).collect::<Vec<_>>();
+                let vals = addrs
+                    .iter()
+                    .map(|i| self.memory.data[*i as usize])
+                    .collect::<Vec<_>>();
+                return (addrs, vals);
+            }
         }
+        return (vec![], vec![]);
     }
 
     /// Return the combined public memory
