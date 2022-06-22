@@ -224,16 +224,16 @@ impl ExecutionTrace {
         memory_path: PathBuf,
         output_len: Option<u64>,
     ) -> ExecutionTrace {
-        let mem = read_memory_bin(&memory_path, &program_path);
+        let mut mem = read_memory_bin(&memory_path, &program_path);
         let registers = read_trace_bin(&trace_path);
         let builtins = read_builtins(&program_path, output_len);
         let num_steps = registers.len();
 
         let inst_states = registers
-            .par_iter()
+            .iter()
             .progress()
             .map(|ptrs| {
-                let mut step = Step::new(&mem, *ptrs);
+                let mut step = Step::new(&mut mem, *ptrs);
                 step.execute(false)
             })
             .collect::<Vec<_>>();

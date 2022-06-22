@@ -94,8 +94,8 @@ impl Memory {
     }
 
     /// Read element in memory address
-    pub fn read(&self, addr: Felt) -> Option<Felt> {
-        //self.resize(addr.to_u64()); // Resize if necessary
+    pub fn read(&mut self, addr: Felt) -> Option<Felt> {
+        self.resize(addr.to_u64()); // Resize if necessary
         self[addr].map(|x| x.word())
     }
 
