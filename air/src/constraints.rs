@@ -121,16 +121,14 @@ impl<E: FieldElement + From<Felt>> EvaluationResult<E> for [E] {
         // pc constraints
         self[NEXT_PC_1] =
             (curr.t1() - curr.f_pc_jnz()) * (next.pc() - (curr.pc() + curr.inst_size()));
-        // FIXME: Constraint (5) on page 53 is not evaluating to zero, so we cannot combine
-        // constraints (5) and (6) below
-        self[NEXT_PC_2] = curr.t0() * (next.pc() - (curr.pc() + curr.op1()));
-        //    + (one - curr.f_pc_jnz()) * next.pc()
-        //    - (one - curr.f_pc_abs() - curr.f_pc_rel() - curr.f_pc_jnz())
-        //        * (curr.pc() + curr.inst_size())
-        //    + curr.f_pc_abs() * curr.res()
-        //    + curr.f_pc_rel() * (curr.pc() + curr.res());
+        self[NEXT_PC_2] = curr.t0() * (next.pc() - (curr.pc() + curr.op1()))
+           + (one - curr.f_pc_jnz()) * next.pc()
+           - ((one - curr.f_pc_abs() - curr.f_pc_rel() - curr.f_pc_jnz())
+                   * (curr.pc() + curr.inst_size())
+               + curr.f_pc_abs() * curr.res()
+               + curr.f_pc_rel() * (curr.pc() + curr.res()));
         self[T0] = curr.f_pc_jnz() * curr.dst() - curr.t0();
-        self[T1] = curr.t0() * curr.res();
+        self[T1] = curr.t0() * curr.res() - curr.t1();
     }
 
     fn evaluate_opcode_constraints(&mut self, frame: &MainEvaluationFrame<E>) {
