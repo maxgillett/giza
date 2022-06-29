@@ -10,6 +10,7 @@ fn main() {
         ExampleType::Factorial => factorial::run(),
         ExampleType::Output => output::run(),
     };
+    println!("num steps {}", trace.num_steps);
 
     if args.prove {
         // generate the proof of execution

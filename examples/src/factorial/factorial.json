@@ -1,0 +1,920 @@
+{
+    "attributes": [],
+    "builtins": [],
+    "data": [
+        "0x482680017ffd8000",
+        "0x800000000000011000000000000000000000000000000000000000000000000",
+        "0x20680017fff7fff",
+        "0x4",
+        "0x480a7ffd7fff8000",
+        "0x208b7fff7fff7ffe",
+        "0x482680017ffd8000",
+        "0x800000000000011000000000000000000000000000000000000000000000000",
+        "0x1104800180018000",
+        "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff9",
+        "0x48527fff7ffd8000",
+        "0x208b7fff7fff7ffe",
+        "0x480a7ffc7fff8000",
+        "0x1104800180018000",
+        "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff4",
+        "0x20780017fff7ffd",
+        "0x4",
+        "0x10780017fff7fff",
+        "0x7",
+        "0x480a7ffc7fff8000",
+        "0x482680017ffd8000",
+        "0x800000000000011000000000000000000000000000000000000000000000000",
+        "0x1104800180018000",
+        "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff7",
+        "0x208b7fff7fff7ffe",
+        "0x480680017fff8000",
+        "0xa",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe6",
+        "0x400680017fff7fff",
+        "0x375f00",
+        "0x480680017fff8000",
+        "0x2710",
+        "0x480680017fff8000",
+        "0xa",
+        "0x1104800180018000",
+        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffea",
+        "0x208b7fff7fff7ffe"
+    ],
+    "debug_info": {
+        "file_contents": {},
+        "instruction_locations": {
+            "0": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 0
+                    },
+                    "reference_ids": {
+                        "__main__.factorial.n": 0
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 14,
+                    "end_line": 3,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 8,
+                    "start_line": 3
+                }
+            },
+            "2": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 1
+                    },
+                    "reference_ids": {
+                        "__main__.factorial.__temp0": 1,
+                        "__main__.factorial.n": 0
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 7,
+                    "end_line": 3,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 3
+                }
+            },
+            "4": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 1
+                    },
+                    "reference_ids": {
+                        "__main__.factorial.__temp0": 1,
+                        "__main__.factorial.n": 0
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 17,
+                    "end_line": 2,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "parent_location": [
+                        {
+                            "end_col": 18,
+                            "end_line": 4,
+                            "input_file": {
+                                "filename": "factorial.cairo"
+                            },
+                            "start_col": 17,
+                            "start_line": 4
+                        },
+                        "While expanding the reference 'n' in:"
+                    ],
+                    "start_col": 16,
+                    "start_line": 2
+                }
+            },
+            "5": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 2
+                    },
+                    "reference_ids": {
+                        "__main__.factorial.__temp0": 1,
+                        "__main__.factorial.n": 0
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 19,
+                    "end_line": 4,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 9,
+                    "start_line": 4
+                }
+            },
+            "6": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 1
+                    },
+                    "reference_ids": {
+                        "__main__.factorial.__temp0": 1,
+                        "__main__.factorial.n": 0
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 28,
+                    "end_line": 6,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 25,
+                    "start_line": 6
+                }
+            },
+            "8": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 2
+                    },
+                    "reference_ids": {
+                        "__main__.factorial.__temp0": 1,
+                        "__main__.factorial.n": 0
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 29,
+                    "end_line": 6,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 15,
+                    "start_line": 6
+                }
+            },
+            "10": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 1,
+                        "offset": 0
+                    },
+                    "reference_ids": {
+                        "__main__.factorial.__temp0": 1,
+                        "__main__.factorial.a": 2,
+                        "__main__.factorial.n": 0
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 16,
+                    "end_line": 7,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 13,
+                    "start_line": 7
+                }
+            },
+            "11": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 1,
+                        "offset": 1
+                    },
+                    "reference_ids": {
+                        "__main__.factorial.__temp0": 1,
+                        "__main__.factorial.a": 2,
+                        "__main__.factorial.n": 0
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 17,
+                    "end_line": 7,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 7
+                }
+            },
+            "12": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial_wrapper"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 2,
+                        "offset": 0
+                    },
+                    "reference_ids": {
+                        "__main__.factorial_wrapper.n": 3,
+                        "__main__.factorial_wrapper.t": 4
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 25,
+                    "end_line": 11,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "parent_location": [
+                        {
+                            "end_col": 16,
+                            "end_line": 12,
+                            "input_file": {
+                                "filename": "factorial.cairo"
+                            },
+                            "start_col": 15,
+                            "start_line": 12
+                        },
+                        "While expanding the reference 'n' in:"
+                    ],
+                    "start_col": 24,
+                    "start_line": 11
+                }
+            },
+            "13": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial_wrapper"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 2,
+                        "offset": 1
+                    },
+                    "reference_ids": {
+                        "__main__.factorial_wrapper.n": 3,
+                        "__main__.factorial_wrapper.t": 4
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 17,
+                    "end_line": 12,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 12
+                }
+            },
+            "15": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial_wrapper"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 3,
+                        "offset": 0
+                    },
+                    "reference_ids": {
+                        "__main__.factorial_wrapper.n": 3,
+                        "__main__.factorial_wrapper.t": 4
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 7,
+                    "end_line": 13,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 13
+                }
+            },
+            "17": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial_wrapper"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 3,
+                        "offset": 0
+                    },
+                    "reference_ids": {
+                        "__main__.factorial_wrapper.n": 3,
+                        "__main__.factorial_wrapper.t": 4
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 7,
+                    "end_line": 13,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 13
+                }
+            },
+            "19": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial_wrapper"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 3,
+                        "offset": 0
+                    },
+                    "reference_ids": {
+                        "__main__.factorial_wrapper.n": 3,
+                        "__main__.factorial_wrapper.t": 4
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 25,
+                    "end_line": 11,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "parent_location": [
+                        {
+                            "end_col": 28,
+                            "end_line": 14,
+                            "input_file": {
+                                "filename": "factorial.cairo"
+                            },
+                            "start_col": 27,
+                            "start_line": 14
+                        },
+                        "While expanding the reference 'n' in:"
+                    ],
+                    "start_col": 24,
+                    "start_line": 11
+                }
+            },
+            "20": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial_wrapper"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 3,
+                        "offset": 1
+                    },
+                    "reference_ids": {
+                        "__main__.factorial_wrapper.n": 3,
+                        "__main__.factorial_wrapper.t": 4
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 33,
+                    "end_line": 14,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 30,
+                    "start_line": 14
+                }
+            },
+            "22": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial_wrapper"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 3,
+                        "offset": 2
+                    },
+                    "reference_ids": {
+                        "__main__.factorial_wrapper.n": 3,
+                        "__main__.factorial_wrapper.t": 4
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 34,
+                    "end_line": 14,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 9,
+                    "start_line": 14
+                }
+            },
+            "24": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.factorial_wrapper"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 5,
+                        "offset": 0
+                    },
+                    "reference_ids": {
+                        "__main__.factorial_wrapper.n": 3,
+                        "__main__.factorial_wrapper.t": 4
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 14,
+                    "end_line": 16,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 16
+                }
+            },
+            "25": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 6,
+                        "offset": 0
+                    },
+                    "reference_ids": {}
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 27,
+                    "end_line": 21,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 25,
+                    "start_line": 21
+                }
+            },
+            "27": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 6,
+                        "offset": 1
+                    },
+                    "reference_ids": {}
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 28,
+                    "end_line": 21,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 15,
+                    "start_line": 21
+                }
+            },
+            "29": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 7,
+                        "offset": 0
+                    },
+                    "reference_ids": {
+                        "__main__.main.y": 5
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 16,
+                    "end_line": 22,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 22
+                }
+            },
+            "31": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 7,
+                        "offset": 0
+                    },
+                    "reference_ids": {
+                        "__main__.main.y": 5
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 28,
+                    "end_line": 25,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 23,
+                    "start_line": 25
+                }
+            },
+            "33": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 7,
+                        "offset": 1
+                    },
+                    "reference_ids": {
+                        "__main__.main.y": 5
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 32,
+                    "end_line": 25,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 30,
+                    "start_line": 25
+                }
+            },
+            "35": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 7,
+                        "offset": 2
+                    },
+                    "reference_ids": {
+                        "__main__.main.y": 5
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 33,
+                    "end_line": 25,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 25
+                }
+            },
+            "37": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 8,
+                        "offset": 0
+                    },
+                    "reference_ids": {
+                        "__main__.main.y": 5
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 14,
+                    "end_line": 26,
+                    "input_file": {
+                        "filename": "factorial.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 26
+                }
+            }
+        }
+    },
+    "hints": {},
+    "identifiers": {
+        "__main__.factorial": {
+            "decorators": [],
+            "pc": 0,
+            "type": "function"
+        },
+        "__main__.factorial.Args": {
+            "full_name": "__main__.factorial.Args",
+            "members": {
+                "n": {
+                    "cairo_type": "felt",
+                    "offset": 0
+                }
+            },
+            "size": 1,
+            "type": "struct"
+        },
+        "__main__.factorial.ImplicitArgs": {
+            "full_name": "__main__.factorial.ImplicitArgs",
+            "members": {},
+            "size": 0,
+            "type": "struct"
+        },
+        "__main__.factorial.Return": {
+            "full_name": "__main__.factorial.Return",
+            "members": {
+                "result": {
+                    "cairo_type": "felt",
+                    "offset": 0
+                }
+            },
+            "size": 1,
+            "type": "struct"
+        },
+        "__main__.factorial.SIZEOF_LOCALS": {
+            "type": "const",
+            "value": 0
+        },
+        "__main__.factorial.__temp0": {
+            "cairo_type": "felt",
+            "full_name": "__main__.factorial.__temp0",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 0,
+                        "offset": 1
+                    },
+                    "pc": 2,
+                    "value": "[cast(ap + (-1), felt*)]"
+                }
+            ],
+            "type": "reference"
+        },
+        "__main__.factorial.a": {
+            "cairo_type": "felt",
+            "full_name": "__main__.factorial.a",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 1,
+                        "offset": 0
+                    },
+                    "pc": 10,
+                    "value": "[cast(ap + (-1), felt*)]"
+                }
+            ],
+            "type": "reference"
+        },
+        "__main__.factorial.n": {
+            "cairo_type": "felt",
+            "full_name": "__main__.factorial.n",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 0,
+                        "offset": 0
+                    },
+                    "pc": 0,
+                    "value": "[cast(fp + (-3), felt*)]"
+                }
+            ],
+            "type": "reference"
+        },
+        "__main__.factorial_wrapper": {
+            "decorators": [],
+            "pc": 12,
+            "type": "function"
+        },
+        "__main__.factorial_wrapper.Args": {
+            "full_name": "__main__.factorial_wrapper.Args",
+            "members": {
+                "n": {
+                    "cairo_type": "felt",
+                    "offset": 0
+                },
+                "t": {
+                    "cairo_type": "felt",
+                    "offset": 1
+                }
+            },
+            "size": 2,
+            "type": "struct"
+        },
+        "__main__.factorial_wrapper.ImplicitArgs": {
+            "full_name": "__main__.factorial_wrapper.ImplicitArgs",
+            "members": {},
+            "size": 0,
+            "type": "struct"
+        },
+        "__main__.factorial_wrapper.Return": {
+            "full_name": "__main__.factorial_wrapper.Return",
+            "members": {},
+            "size": 0,
+            "type": "struct"
+        },
+        "__main__.factorial_wrapper.SIZEOF_LOCALS": {
+            "type": "const",
+            "value": 0
+        },
+        "__main__.factorial_wrapper.n": {
+            "cairo_type": "felt",
+            "full_name": "__main__.factorial_wrapper.n",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 2,
+                        "offset": 0
+                    },
+                    "pc": 12,
+                    "value": "[cast(fp + (-4), felt*)]"
+                }
+            ],
+            "type": "reference"
+        },
+        "__main__.factorial_wrapper.t": {
+            "cairo_type": "felt",
+            "full_name": "__main__.factorial_wrapper.t",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 2,
+                        "offset": 0
+                    },
+                    "pc": 12,
+                    "value": "[cast(fp + (-3), felt*)]"
+                }
+            ],
+            "type": "reference"
+        },
+        "__main__.main": {
+            "decorators": [],
+            "pc": 25,
+            "type": "function"
+        },
+        "__main__.main.Args": {
+            "full_name": "__main__.main.Args",
+            "members": {},
+            "size": 0,
+            "type": "struct"
+        },
+        "__main__.main.ImplicitArgs": {
+            "full_name": "__main__.main.ImplicitArgs",
+            "members": {},
+            "size": 0,
+            "type": "struct"
+        },
+        "__main__.main.Return": {
+            "full_name": "__main__.main.Return",
+            "members": {},
+            "size": 0,
+            "type": "struct"
+        },
+        "__main__.main.SIZEOF_LOCALS": {
+            "type": "const",
+            "value": 0
+        },
+        "__main__.main.y": {
+            "cairo_type": "felt",
+            "full_name": "__main__.main.y",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 7,
+                        "offset": 0
+                    },
+                    "pc": 29,
+                    "value": "[cast(ap + (-1), felt*)]"
+                }
+            ],
+            "type": "reference"
+        }
+    },
+    "main_scope": "__main__",
+    "prime": "0x800000000000011000000000000000000000000000000000000000000000001",
+    "reference_manager": {
+        "references": [
+            {
+                "ap_tracking_data": {
+                    "group": 0,
+                    "offset": 0
+                },
+                "pc": 0,
+                "value": "[cast(fp + (-3), felt*)]"
+            },
+            {
+                "ap_tracking_data": {
+                    "group": 0,
+                    "offset": 1
+                },
+                "pc": 2,
+                "value": "[cast(ap + (-1), felt*)]"
+            },
+            {
+                "ap_tracking_data": {
+                    "group": 1,
+                    "offset": 0
+                },
+                "pc": 10,
+                "value": "[cast(ap + (-1), felt*)]"
+            },
+            {
+                "ap_tracking_data": {
+                    "group": 2,
+                    "offset": 0
+                },
+                "pc": 12,
+                "value": "[cast(fp + (-4), felt*)]"
+            },
+            {
+                "ap_tracking_data": {
+                    "group": 2,
+                    "offset": 0
+                },
+                "pc": 12,
+                "value": "[cast(fp + (-3), felt*)]"
+            },
+            {
+                "ap_tracking_data": {
+                    "group": 7,
+                    "offset": 0
+                },
+                "pc": 29,
+                "value": "[cast(ap + (-1), felt*)]"
+            }
+        ]
+    }
+}

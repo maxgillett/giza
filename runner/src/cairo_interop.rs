@@ -44,7 +44,7 @@ pub fn read_trace_bin(path: &PathBuf) -> Vec<RegisterState> {
         ptrs.push(reg);
     }
 
-    //print_registers(&ptrs);
+    print_registers(&ptrs);
 
     ptrs
 }

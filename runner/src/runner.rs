@@ -368,27 +368,27 @@ impl State {
         let mut mem_v: Vec<Vec<Felt>> = Vec::with_capacity(MEM_V_TRACE_WIDTH);
         let mut offsets: Vec<Vec<Felt>> = Vec::with_capacity(OFF_X_TRACE_WIDTH);
         for _ in 0..FLAG_TRACE_WIDTH {
-            let column = Felt::zeroed_vector(init_trace_len);
+            let column = Vec::with_capacity(init_trace_len);
             flags.push(column);
         }
         for _ in 0..RES_TRACE_WIDTH {
-            let column = Felt::zeroed_vector(init_trace_len);
+            let column = Vec::with_capacity(init_trace_len);
             res.push(column);
         }
         for _ in 0..MEM_P_TRACE_WIDTH {
-            let column = Felt::zeroed_vector(init_trace_len);
+            let column = Vec::with_capacity(init_trace_len);
             mem_p.push(column);
         }
         for _ in 0..MEM_A_TRACE_WIDTH {
-            let column = Felt::zeroed_vector(init_trace_len);
+            let column = Vec::with_capacity(init_trace_len);
             mem_a.push(column);
         }
         for _ in 0..MEM_V_TRACE_WIDTH {
-            let column = Felt::zeroed_vector(init_trace_len);
+            let column = Vec::with_capacity(init_trace_len);
             mem_v.push(column);
         }
         for _ in 0..OFF_X_TRACE_WIDTH {
-            let column = Felt::zeroed_vector(init_trace_len);
+            let column = Vec::with_capacity(init_trace_len);
             offsets.push(column);
         }
         State {
@@ -401,39 +401,39 @@ impl State {
         }
     }
 
-    pub fn set_register_state(&mut self, step: usize, s: RegisterState) {
-        self.mem_a[0][step] = s.pc;
-        self.mem_p[0][step] = s.ap;
-        self.mem_p[1][step] = s.fp;
+    pub fn push_register_state(&mut self, step: usize, s: RegisterState) {
+        self.mem_a[0].push(s.pc);
+        self.mem_p[0].push(s.ap);
+        self.mem_p[1].push(s.fp);
     }
 
-    pub fn set_instruction_state(&mut self, step: usize, s: InstructionState) {
+    pub fn push_instruction_state(&mut self, step: usize, s: InstructionState) {
         // Flags
         let flags = s.inst.flags();
         for i in 0..=15 {
-            self.flags[i][step] = flags[i];
+            self.flags[i].push(flags[i]);
         }
 
         // Result
-        self.res[0][step] = s.res.unwrap_or(Felt::ZERO);
+        self.res[0].push(s.res.unwrap_or(Felt::ZERO));
 
         // Instruction
-        self.mem_v[0][step] = s.inst.word();
+        self.mem_v[0].push(s.inst.word());
 
         // Auxiliary values
-        self.mem_v[1][step] = s.dst.unwrap_or(Felt::ZERO);
-        self.mem_v[2][step] = s.op0.unwrap_or(Felt::ZERO);
-        self.mem_v[3][step] = s.op1.unwrap_or(Felt::ZERO);
+        self.mem_v[1].push(s.dst.unwrap_or(Felt::ZERO));
+        self.mem_v[2].push(s.op0.unwrap_or(Felt::ZERO));
+        self.mem_v[3].push(s.op1.unwrap_or(Felt::ZERO));
 
         // Operands
-        self.mem_a[1][step] = s.dst_addr;
-        self.mem_a[2][step] = s.op0_addr;
-        self.mem_a[3][step] = s.op1_addr;
+        self.mem_a[1].push(s.dst_addr);
+        self.mem_a[2].push(s.op0_addr);
+        self.mem_a[3].push(s.op1_addr);
 
         // Offsets
-        self.offsets[0][step] = s.inst.off_dst();
-        self.offsets[1][step] = s.inst.off_op0();
-        self.offsets[2][step] = s.inst.off_op1();
+        self.offsets[0].push(s.inst.off_dst());
+        self.offsets[1].push(s.inst.off_op0());
+        self.offsets[2].push(s.inst.off_op1());
     }
 }
 
@@ -509,8 +509,9 @@ impl<'a> Program<'a> {
 
             // execute current step and save state
             let inst_state = step.execute(true);
-            state.set_register_state(n, curr);
-            state.set_instruction_state(n, inst_state);
+
+            state.push_register_state(n, curr);
+            state.push_instruction_state(n, inst_state);
 
             n += 1;
             match step.next {

@@ -240,8 +240,8 @@ impl ExecutionTrace {
 
         let mut state = State::new(registers.len() + 1);
         for (n, (reg_state, inst_state)) in registers.iter().zip(inst_states).enumerate() {
-            state.set_register_state(n, *reg_state);
-            state.set_instruction_state(n, inst_state);
+            state.push_register_state(n, *reg_state);
+            state.push_instruction_state(n, inst_state);
         }
 
         Self::new(num_steps, &mut state, &mem, builtins)

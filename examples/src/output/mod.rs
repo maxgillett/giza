@@ -26,6 +26,11 @@ pub fn run() -> ExecutionTrace {
         -Felt::from(17u64),
         Felt::from(0x208b7fff7fff7ffeu64),
     ];
+
+    //for inst in instrs.iter() {
+    //    println!("{}", inst);
+    //}
+
     let mut mem = Memory::new(instrs);
     mem.write_pub(Felt::from(21u32), Felt::from(41u32)); // beginning of output
     mem.write_pub(Felt::from(22u32), Felt::from(44u32)); // end of output

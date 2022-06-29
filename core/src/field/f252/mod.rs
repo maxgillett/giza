@@ -105,6 +105,10 @@ impl BaseElement {
     pub fn to_raw(&self) -> BigInt {
         self.0.to_raw()
     }
+
+    pub fn from_hex(hex: &str) -> Self {
+        BaseElement(Fr::from_hex(hex))
+    }
 }
 
 impl StarkField for BaseElement {
@@ -542,6 +546,7 @@ impl TryInto<u16> for BigInt {
 }
 
 impl BigInt {
+    /// Convert BigInt into a byte vector
     pub fn to_le_bytes(&self) -> Vec<u8> {
         let mut result = [0u8; 32];
         write_le_bytes(self.0, &mut result);
@@ -563,6 +568,19 @@ impl Fr {
         Fr(value).mul(&R2)
     }
 
+    pub fn from_hex(hex: &str) -> Self {
+        let bytes = hex.as_bytes();
+        let mut decoder = Decoder::new();
+        let mut i = 0;
+        while i < bytes.len() {
+            i += 2;
+            let offset = bytes.len() - i;
+            let byte = decode_hex_byte([bytes[offset], bytes[offset + 1]]);
+            decoder = decoder.add_byte(byte);
+        }
+        Self::from_raw(decoder.limbs)
+    }
+
     pub fn to_raw(&self) -> BigInt {
         let limbs = self.0;
         let mut val = self.clone();
@@ -577,11 +595,73 @@ impl Fr {
     }
 }
 
-// Modified from https://github.com/RustCrypto/crypto-bigint/blob/171f6745b98b6dccf05f7d25263981949967f398/src/uint/encoding.rs
+// Modified from https://github.com/RustCrypto/crypto-bigint
 fn write_le_bytes(value: [u64; 4], out: &mut [u8]) {
     for (src, dst) in value.iter().cloned().zip(out.chunks_exact_mut(8)) {
         dst.copy_from_slice(&src.to_le_bytes());
     }
+}
+
+// Modified from https://github.com/RustCrypto/crypto-bigint
+/// [`UInt`] decoder.
+#[derive(Clone, Debug)]
+pub(super) struct Decoder {
+    /// Stored from least significant to most significant.
+    limbs: [u64; 4],
+    /// Current limb being decoded.
+    index: usize,
+    /// Total number of bytes consumed.
+    bytes: usize,
+}
+
+impl Decoder {
+    /// Create a new decoder.
+    pub const fn new() -> Self {
+        Self {
+            limbs: [0u64; 4],
+            index: 0,
+            bytes: 0,
+        }
+    }
+
+    /// Add a byte onto the [`UInt`] being decoded.
+    pub const fn add_byte(mut self, byte: u8) -> Self {
+        if self.bytes == 8 {
+            assert!(self.index < 4, "too many bytes");
+            self.index += 1;
+            self.bytes = 0;
+        }
+        self.limbs[self.index] |= (byte as u64) << (self.bytes * 8);
+        self.bytes += 1;
+        self
+    }
+}
+
+// Modified from https://github.com/RustCrypto/crypto-bigint
+/// Decode a single byte encoded as two hexadecimal characters.
+const fn decode_hex_byte(bytes: [u8; 2]) -> u8 {
+    let mut i = 0;
+    let mut result = 0u8;
+
+    while i < 2 {
+        result <<= 4;
+        result |= match bytes[i] {
+            b @ b'0'..=b'9' => b - b'0',
+            b @ b'a'..=b'f' => 10 + b - b'a',
+            b @ b'A'..=b'F' => 10 + b - b'A',
+            b => {
+                assert!(
+                    matches!(b, b'0'..=b'9' | b'a' ..= b'f' | b'A'..=b'F'),
+                    "invalid hex byte"
+                );
+                0
+            }
+        };
+
+        i += 1;
+    }
+
+    result
 }
 
 #[test]
