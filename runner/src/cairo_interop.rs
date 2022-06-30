@@ -121,15 +121,15 @@ mod tests {
 
     #[test]
     fn test_trace_bin() {
-        let trace = read_trace_bin(PathBuf::from("../tmp/trace.bin"));
+        let trace = read_trace_bin(&PathBuf::from("../tmp/trace.bin"));
         println!("{:?}", trace);
     }
 
     #[test]
     fn test_memory_bin() {
         let mem = read_memory_bin(
-            PathBuf::from("../tmp/memory.bin"),
-            PathBuf::from("../tmp/program.json"),
+            &PathBuf::from("../tmp/memory.bin"),
+            &PathBuf::from("../tmp/program.json"),
         );
         println!("{:?}", mem.data);
     }
