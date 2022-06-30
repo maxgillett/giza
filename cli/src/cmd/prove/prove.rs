@@ -21,7 +21,7 @@ impl Cmd for ProveArgs {
             ExecutionTrace::from_file(self.program, self.trace, self.memory, self.num_outputs);
 
         // Generate proof
-        let proof_options = ProofOptions::with_96_bit_security(
+        let proof_options = ProofOptions::with_proof_options(
             self.num_queries,
             self.blowup_factor,
             self.grinding_factor,

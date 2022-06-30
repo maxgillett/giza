@@ -26,7 +26,7 @@ impl ProofOptions {
         ))
     }
 
-    pub fn with_96_bit_security(
+    pub fn with_proof_options(
         num_queries: Option<usize>,
         blowup_factor: Option<usize>,
         grinding_factor: Option<u32>,
@@ -51,7 +51,7 @@ impl ProofOptions {
 
 impl Default for ProofOptions {
     fn default() -> Self {
-        Self::with_96_bit_security(None, None, None, None, None)
+        Self::with_proof_options(None, None, None, None, None)
     }
 }
 
