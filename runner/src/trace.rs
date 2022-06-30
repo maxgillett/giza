@@ -114,11 +114,7 @@ impl ExecutionTrace {
             // TODO: Don't hardcode index values
             let f_pc_jnz = state.flags[9][step];
             let dst = state.mem_v[1][step];
-            let res = if f_pc_jnz != Felt::ZERO && dst != Felt::ZERO {
-                dst.inv()
-            } else {
-                state.res[0][step]
-            };
+            let res = state.res[0][step];
             t0.push(f_pc_jnz * dst); // f_pc_jnz * dst
             t1.push(t0[step] * res); // t_0 * res
             mul.push(state.mem_v[2][step] * state.mem_v[3][step]); // op0 * op1
