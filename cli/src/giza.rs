@@ -3,8 +3,7 @@ mod utils;
 
 use crate::utils::Cmd;
 use clap::{Parser, Subcommand};
-use cmd::prove::ProveArgs;
-use cmd::verify::VerifyArgs;
+use cmd::{prove::ProveArgs, verify::VerifyArgs};
 
 #[derive(Debug, Parser)]
 #[clap(name = "giza")]

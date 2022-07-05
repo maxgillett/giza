@@ -26,17 +26,21 @@ impl ProofOptions {
         ))
     }
 
-    // TODO: Use parameters appropriate for 252-bit field (see ethSTARK paper,
-    // sections 5.10.1 and 5.10.2)
-    pub fn with_96_bit_security() -> Self {
+    pub fn with_proof_options(
+        num_queries: Option<usize>,
+        blowup_factor: Option<usize>,
+        grinding_factor: Option<u32>,
+        fri_folding_factor: Option<usize>,
+        fri_max_remainder_size: Option<usize>,
+    ) -> Self {
         Self(WinterProofOptions::new(
-            54, // 27
-            4,  //8,
-            16,
+            num_queries.unwrap_or(54),  // 27
+            blowup_factor.unwrap_or(4), //8,
+            grinding_factor.unwrap_or(16),
             HashFunction::Blake3_192,
             FieldExtension::None,
-            8,
-            256,
+            fri_folding_factor.unwrap_or(8),
+            fri_max_remainder_size.unwrap_or(256),
         ))
     }
 
@@ -47,7 +51,7 @@ impl ProofOptions {
 
 impl Default for ProofOptions {
     fn default() -> Self {
-        Self::with_96_bit_security()
+        Self::with_proof_options(None, None, None, None, None)
     }
 }
 
