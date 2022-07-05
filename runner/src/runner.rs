@@ -36,8 +36,8 @@ impl<'a> Step<'a> {
         // Execute instruction
         let (op0_addr, mut op0) = self.set_op0();
         let (op1_addr, mut op1, size) = self.set_op1(op0);
-        let mut res = self.set_res(op0, op1);
         let (dst_addr, mut dst) = self.set_dst();
+        let mut res = self.set_res(op0, op1, dst);
         let next_pc = self.next_pc(size, res, dst, op1);
         let (next_ap, next_fp, op0_update, op1_update, res_update, dst_update) =
             self.next_apfp(size, res, dst, dst_addr, op1_addr, write);
@@ -139,7 +139,7 @@ impl<'a> Step<'a> {
     ///     or if the flagset `RES_LOG` has more than 1 nonzero bit
     /// Inputs: `op0`, `op1`
     /// Outputs: `res`
-    fn set_res(&mut self, op0: Option<Felt>, op1: Option<Felt>) -> Option<Felt> {
+    fn set_res(&mut self, op0: Option<Felt>, op1: Option<Felt>, dst: Option<Felt>) -> Option<Felt> {
         let res;
         if self.inst().pc_up() == PC_JNZ {
             /*4*/
@@ -149,7 +149,14 @@ impl<'a> Step<'a> {
                 && self.inst().ap_up() != AP_ADD
             /* not 1*/
             {
-                res = Some(Felt::ZERO); // "unused"
+                // in the context of a jnz instruction, the res register is unused, so we repurpose
+                // it to hold the value v = dst^(-1), which is used in the pc update constraint
+                let dst = dst.expect("None dst after JNZ");
+                if dst == Felt::ZERO {
+                    res = Some(dst)
+                } else {
+                    res = Some(dst.inv());
+                }
             } else {
                 panic!("Invalid JNZ instruction");
             }
