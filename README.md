@@ -2,7 +2,7 @@
 
 Giza leverages the Winterfell library to prove and verify the execution of programs running on the Cairo VM.
 
-## Usage instructions
+## Usage Instructions
 
 Giza offers two modes of usage. In the first mode, an execution trace created by an external Cairo runner is supplied to the CLI to output a proof. The provided trace consists of binary files containing the record of register and memory states visited during the run of a Cairo program. To prove execution, additional auxiliary trace values must be reconstructed, and the built-in Rust runner is used to re-execute the trace in order to compute these values.
 
