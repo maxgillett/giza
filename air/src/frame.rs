@@ -172,7 +172,7 @@ impl<'a, E: FieldElement + From<Felt>> MainFrameSegment<'a, E> {
     pub fn mul(&self) -> E {
         self.get(2, DataSegment::TempValues)
     }
-    /// Virtual columns of memory addreses and values
+    /// Virtual columns of memory addresses and values
     pub fn a_m(&self, idx: usize) -> E {
         self.get_virtual(idx, MEM_A_TRACE_OFFSET, MEM_A_TRACE_WIDTH)
     }

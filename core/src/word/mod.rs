@@ -66,7 +66,7 @@ pub trait FlagDecomposition<F> {
         self.flag_at(3)
     }
 
-    /// Returns bit-flag for allocation pointer for second regsiter as `F`
+    /// Returns bit-flag for allocation pointer for second register as `F`
     fn f_op1_ap(&self) -> F {
         self.flag_at(4)
     }
