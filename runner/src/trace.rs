@@ -48,7 +48,7 @@ impl<'a, E: FieldElement> VirtualColumn<'a, E> {
     }
 
     /// Split subcolumns into multiple output columns: for each subcolumn, output a single
-    /// value to each output column, cycling through each output column until exhuasted.
+    /// value to each output column, cycling through each output column until exhausted.
     fn to_columns(&self, num_rows: &[usize]) -> Vec<Vec<E>> {
         let mut n = 0;
         let mut cols: Vec<Vec<E>> = vec![vec![]; num_rows.iter().sum()];
